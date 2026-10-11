@@ -4,9 +4,9 @@ Runs on the local PC. Custom app that joins Frigate's presence/zone events with 
 
 ## Architecture
 
-A Python service that runs as a container in the Frigate stack. It listens to both event streams on the MQTT broker, writes the database, and asks Frigate for each Clip.
+Two containers in the Frigate stack, built from the same code. The recording service listens to both event streams on the MQTT broker, writes the database, and asks Frigate for each Clip. The web service serves the dashboard pages and the API behind them; the only thing it writes is a Review Decision.
 
-- **correlator/**: the service, plus a tool that prints what the database holds.
+- **correlator/**: the recording service, the web service with its pages, and a tool that prints what the database holds.
 - **data/**: the database and the Clips (not committed).
 - **Dockerfile**, **requirements.txt**: how the container is built.
 
@@ -27,6 +27,10 @@ _Avoid_: User, actor
 **Ambiguous Press**:
 A Press with no single candidate Presser: either both the human and the pet were in the Board Zone, or nobody was. Flagged for manual review rather than guessed.
 _Avoid_: Unknown press, unresolved press
+
+**Review Decision**:
+A person's answer, after watching the Clip, to who caused a Press: the cat, the human, or nobody (the Press is discarded as not real). It overrides the automatic Presser in the study's figures, never erases it, and can be withdrawn. Any Press can be given one, not only an Ambiguous Press.
+_Avoid_: Override, correction, label
 
 **Utterance**:
 An ordered sequence of Presses occurring within a short time window, treated as one meaningful unit for the study (e.g. "want" + "outside").

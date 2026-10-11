@@ -30,6 +30,7 @@ class Config:
     clip_pre_roll_seconds: float
     clip_export_delay_seconds: float
     heartbeat_seconds: float
+    web_port: int
     log_level: str
 
     @property
@@ -60,6 +61,7 @@ class Config:
             clip_pre_roll_seconds=_positive("CR_CLIP_PRE_ROLL_SECONDS", 5.0),
             clip_export_delay_seconds=_positive("CR_CLIP_EXPORT_DELAY_SECONDS", 20.0),
             heartbeat_seconds=_positive("CR_HEARTBEAT_SECONDS", 30.0),
+            web_port=int(_positive("CR_WEB_PORT", 8600)),
             log_level=os.environ.get("CR_LOG_LEVEL", "INFO").upper(),
         )
         if config.utterance_max_seconds <= config.utterance_gap_seconds:
