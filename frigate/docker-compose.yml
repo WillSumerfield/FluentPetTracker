@@ -1,0 +1,42 @@
+# Frigate Classification stack. Run from this directory: docker compose up -d
+# All ports are bound to 127.0.0.1, so nothing is reachable from other devices on the network.
+
+services:
+  # Stand-in for the Pi: loops a video file as the RTSP stream the Pi will later serve.
+  # Remove this service once the real RPi Capture stream exists.
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    restart: unless-stopped
+    volumes:
+      - ./standin/mediamtx.yml:/mediamtx.yml:ro
+      - ./standin/cat.mp4:/standin/cat.mp4:ro
+    ports:
+      - "127.0.0.1:8554:8554"
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    ports:
+      - "127.0.0.1:1883:1883"
+
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:stable
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+      - mosquitto
+    stop_grace_period: 30s
+    shm_size: "128mb"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./config:/config
+      - ./storage:/media/frigate
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    ports:
+      - "127.0.0.1:8971:8971" # web UI, login required
+      - "127.0.0.1:5000:5000" # web UI and API, no login

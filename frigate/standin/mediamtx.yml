@@ -1,0 +1,10 @@
+# Stand-in stream: publishes cat.mp4 on a loop at rtsp://mediamtx:8554/board.
+# This is not the RPi Capture config; it only imitates the Pi's stream for development.
+
+paths:
+  board:
+    runOnInit: >-
+      ffmpeg -nostdin -loglevel warning -re -stream_loop -1
+      -i /standin/cat.mp4 -c copy
+      -f rtsp -rtsp_transport tcp rtsp://localhost:8554/board
+    runOnInitRestart: yes

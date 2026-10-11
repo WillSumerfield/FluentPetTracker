@@ -20,6 +20,11 @@ node_modules/
 .vscode/
 .idea/
 
+# Frigate runtime data (recordings, database, model cache)
+frigate/storage/
+frigate/config/*
+!frigate/config/config.yml
+
 # Logs & media (recordings/clips can get large)
 *.log
 *.mp4

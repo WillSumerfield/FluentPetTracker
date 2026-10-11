@@ -1,13 +1,19 @@
 # Frigate Classification
 
-Runs on the local PC. Consumes the RTSP stream via FFmpeg and classifies human vs. animal presence in zones around the board. Owns continuous recording and event-triggered Clip saving (Frigate's built-in behavior, not custom).
+Runs on the local PC. Consumes the RTSP stream via FFmpeg and classifies human vs. animal presence in zones around the board. Owns the short-lived continuous recording that Clips are later cut from (Frigate's built-in behavior, not custom).
 
 ## Architecture
 
-Empty — implementation begins in Phase 2 (see `temp/phased-plan.md`).
+A Docker Compose stack: Frigate, the MQTT broker it publishes to, and a temporary stand-in for the Pi's stream.
+
+- **docker-compose.yml**: defines the stack's containers.
+- **config/**: Frigate's configuration, including the Board Zone; Frigate also writes its runtime database here.
+- **mosquitto/**: configuration for the MQTT broker.
+- **standin/**: a looped video served as if it were the Pi's stream, to be removed once RPi Capture is live.
+- **storage/**: Frigate's short-lived recordings (not committed).
 
 ## Language
 
-**Clip**:
-The video segment Frigate saves (with pre-event padding) corresponding to a Press.
-_Avoid_: Recording, footage, video segment
+**Board Zone**:
+The area around the FluentPet Board from which a subject could reach a button, sized to a person's arm's reach. Being in the Board Zone at press time is what makes a subject a candidate Presser.
+_Avoid_: Range, proximity, detection area
