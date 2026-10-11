@@ -37,3 +37,6 @@ correlator/data/
 home-assistant/config/*
 !home-assistant/config/configuration.yaml
 !home-assistant/config/dashboards/
+
+# Planning notes (local only)
+temp/
