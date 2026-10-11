@@ -1,7 +1,14 @@
 # Home Assistant Dashboard for the FluentPet study.
 # The study's data lives in the Correlator; Home Assistant only shows it.
 
-default_config:
+# Only what the study needs. Home Assistant's "default_config" would also switch on Energy,
+# Logbook, History and other pages that have nothing to show here.
+frontend:
+config:
+recorder:
+sensor:
+binary_sensor:
+mobile_app:
 
 homeassistant:
   name: FluentPet Tracker
