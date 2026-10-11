@@ -1,0 +1,41 @@
+# The "FluentPet Board" entry in Home Assistant's sidebar.
+
+title: FluentPet Board
+views:
+  # The Correlator's own pages: live view, Review Queue and history.
+  # The address is opened by the browser, not by Home Assistant, so it must be reachable from
+  # the device showing the dashboard. localhost works on the PC only.
+  - title: Board
+    path: board
+    icon: mdi:paw
+    type: panel
+    cards:
+      - type: iframe
+        url: http://localhost:8600/
+        aspect_ratio: 60%
+
+  - title: Figures
+    path: figures
+    icon: mdi:chart-line
+    cards:
+      - type: entities
+        title: Today
+        entities:
+          - entity: binary_sensor.fluentpet_observing
+            name: Observing
+          - entity: sensor.fluentpet_cat_presses_today
+            name: Presses by the cat
+          - entity: sensor.fluentpet_cat_presses_per_observed_hour_today
+            name: Per observed hour
+          - entity: sensor.fluentpet_presses_awaiting_review
+            name: Awaiting review
+          - entity: sensor.fluentpet_last_word_by_the_cat
+            name: Last Word by the cat
+          - entity: sensor.fluentpet_words_used_by_the_cat
+            name: Words used by the cat
+      - type: history-graph
+        title: Presses by the cat today
+        hours_to_show: 24
+        entities:
+          - entity: sensor.fluentpet_cat_presses_today
+            name: Presses

@@ -1,0 +1,59 @@
+# Home Assistant Dashboard for the FluentPet study.
+# The study's data lives in the Correlator; Home Assistant only shows it.
+
+default_config:
+
+homeassistant:
+  name: FluentPet Tracker
+
+lovelace:
+  mode: storage
+  dashboards:
+    fluentpet-board:
+      mode: yaml
+      title: FluentPet Board
+      icon: mdi:paw
+      show_in_sidebar: true
+      filename: dashboards/fluentpet.yaml
+
+# Figures polled from the Correlator's web API, for cards, automations and notifications.
+rest:
+  - resource: http://correlator-web:8600/api/summary
+    scan_interval: 30
+    timeout: 10
+    sensor:
+      - name: "FluentPet cat Presses today"
+        unique_id: fluentpet_cat_presses_today
+        icon: mdi:cat
+        unit_of_measurement: "Presses"
+        state_class: total_increasing
+        value_template: "{{ value_json.cat_presses_today }}"
+      - name: "FluentPet cat Presses per observed hour today"
+        unique_id: fluentpet_cat_presses_per_hour_today
+        icon: mdi:speedometer
+        unit_of_measurement: "Presses/h"
+        state_class: measurement
+        availability: "{{ value_json.cat_presses_per_hour_today is not none }}"
+        value_template: "{{ value_json.cat_presses_per_hour_today }}"
+      - name: "FluentPet Presses awaiting review"
+        unique_id: fluentpet_presses_awaiting_review
+        icon: mdi:help-circle-outline
+        unit_of_measurement: "Presses"
+        state_class: measurement
+        value_template: "{{ value_json.awaiting_review }}"
+      - name: "FluentPet Words used by the cat"
+        unique_id: fluentpet_vocabulary_size
+        icon: mdi:book-alphabet
+        unit_of_measurement: "Words"
+        state_class: measurement
+        value_template: "{{ value_json.vocabulary_size }}"
+      - name: "FluentPet last Word by the cat"
+        unique_id: fluentpet_last_cat_word
+        icon: mdi:message-text-outline
+        availability: "{{ value_json.last_cat_word is not none }}"
+        value_template: "{{ value_json.last_cat_word }}"
+    binary_sensor:
+      - name: "FluentPet observing"
+        unique_id: fluentpet_observing
+        device_class: running
+        value_template: "{{ value_json.observing }}"

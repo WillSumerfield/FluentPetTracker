@@ -50,6 +50,32 @@ services:
       - ../correlator/data:/data
       - ./storage/exports:/frigate-exports:ro
 
+  # The Correlator's web pages and API: figures, Clips and Review Decisions, shown inside
+  # Home Assistant. Separate from the recording service, so a web fault cannot stop recording.
+  correlator-web:
+    build: ../correlator
+    command: ["python", "-m", "correlator.web"]
+    restart: unless-stopped
+    user: "1000:1000"
+    # No depends_on: rebuilding these pages must not restart the recording service.
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ../correlator/data:/data
+    ports:
+      - "127.0.0.1:8600:8600" # dashboard pages and API, no login
+
+  # Home Assistant Dashboard: shows the Correlator's pages in its sidebar and polls its figures.
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    restart: unless-stopped
+    depends_on:
+      - correlator-web
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ../home-assistant/config:/config
+    ports:
+      - "127.0.0.1:8123:8123" # web UI, login required
+
   frigate:
     image: ghcr.io/blakeblackshear/frigate:stable
     restart: unless-stopped

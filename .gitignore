@@ -32,3 +32,8 @@ frigate/config/*
 
 # Correlator runtime data (database and Clips)
 correlator/data/
+
+# Home Assistant runtime data (its own database, accounts and caches)
+home-assistant/config/*
+!home-assistant/config/configuration.yaml
+!home-assistant/config/dashboards/
