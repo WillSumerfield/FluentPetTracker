@@ -32,6 +32,24 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - ../word-detection/references:/references:ro
 
+  # Correlator: joins Word events with Board Zone presence into Presses, and cuts Clips.
+  correlator:
+    build: ../correlator
+    restart: unless-stopped
+    user: "1000:1000" # so the database and Clips belong to the normal user, not root
+    depends_on:
+      - mosquitto
+      - frigate
+      - word-detection
+    environment:
+      # Stand-in only: the looping video never leaves the real 20-second gap between
+      # Presses, so Utterances would never close. Remove once the real stream exists.
+      CR_UTTERANCE_GAP_SECONDS: "8"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ../correlator/data:/data
+      - ./storage/exports:/frigate-exports:ro
+
   frigate:
     image: ghcr.io/blakeblackshear/frigate:stable
     restart: unless-stopped
