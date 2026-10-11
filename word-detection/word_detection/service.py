@@ -51,6 +51,7 @@ class Service:
         self._references = references
         self._stopping = threading.Event()
         self._stream: Optional[PcmStream] = None
+        self._hearing = False
         self._events_topic = f"{config.topic_prefix}/words"
         self._status_topic = f"{config.topic_prefix}/status"
         self._mqtt = self._build_mqtt_client()
@@ -93,12 +94,23 @@ class Service:
                 for chunk in stream.chunks():
                     if samples_received == 0:
                         log.info("Listening to %s", self._config.stream_url)
+                        self._set_hearing(True)
                     samples_received += chunk.size
                     clock.observe(samples_received)
                     for match in matcher.push(extractor.push(chunk)):
                         self._publish(match, clock.time_of(match.start_seconds))
             finally:
                 self._stream = None
+                self._set_hearing(False)
+
+    def _set_hearing(self, hearing: bool) -> None:
+        """Report whether the stream is being heard. While it is not, a Press would be missed."""
+        if hearing != self._hearing:
+            self._hearing = hearing
+            self._publish_status()
+
+    def _publish_status(self) -> None:
+        self._mqtt.publish(self._status_topic, "online" if self._hearing else "offline", qos=1, retain=True)
 
     def _publish(self, match: Match, started_at: float) -> None:
         payload = {
@@ -130,7 +142,7 @@ class Service:
             log.warning("The MQTT broker refused the connection: %s", reason_code)
             return
         log.info("Connected to the MQTT broker at %s:%d", self._config.mqtt_host, self._config.mqtt_port)
-        client.publish(self._status_topic, "online", qos=1, retain=True)
+        self._publish_status()
 
     def _on_mqtt_disconnect(self, _client, _userdata, _flags, reason_code, _properties) -> None:
         if not self._stopping.is_set():
