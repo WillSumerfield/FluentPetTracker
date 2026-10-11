@@ -15,7 +15,10 @@
  3 │   │   ├── database.py             ← Presses, Utterances, Observation Windows
  3 │   │   ├── presence.py             ← Board Zone presence and Presser attribution
  3 │   │   ├── report.py               ← prints what the database holds
- 3 │   │   └── service.py              ← the running service
+ 3 │   │   ├── service.py              ← the recording service
+ 3 │   │   ├── static                  ← the dashboard pages
+ 3 │   │   ├── store.py                ← what the web pages may read and write
+ 3 │   │   └── web.py                  ← the web service and its API
  2 │   ├── data
  2 │   └── requirements.txt
  1 ├── frigate
@@ -30,7 +33,10 @@
  3 │   │   └── mediamtx.yml
  2 │   └── storage
  1 ├── home-assistant
- 2 │   └── CONTEXT.md
+ 2 │   ├── CONTEXT.md
+ 2 │   └── config
+ 3 │       ├── configuration.yaml      ← sidebar entry and sensors
+ 3 │       └── dashboards
  1 ├── rpi-capture
  2 │   └── CONTEXT.md
  1 ├── word-detection
@@ -53,6 +59,7 @@
  2     ├── phase-2-notes.md            ← Frigate Classification implementation decisions
  2     ├── phase-3-notes.md            ← Word Detection implementation decisions
  2     ├── phase-4-notes.md            ← Correlator implementation decisions
+ 2     ├── phase-5-notes.md            ← Home Assistant Dashboard implementation decisions
  2     └── phased-plan.md              ← how the goal gets built, in phases
 ```
 
@@ -62,9 +69,9 @@
 - [Frigate Classification](./frigate/CONTEXT.md) — runs on the local PC; consumes the RTSP video stream, classifies human vs. cat presence in the Board Zone, and owns the short-lived continuous recording that Clips are cut from (built-in Frigate behavior, not custom).
 - [Word Detection](./word-detection/CONTEXT.md) — runs on the local PC; custom audio pipeline that consumes the mic feed and identifies which Word was spoken by matching it against Reference Clips.
 - [Correlator](./correlator/CONTEXT.md) — runs on the local PC; custom app that joins Frigate's presence/zone events with Word Detection's events (by timestamp) into a Press record, resolves Presser attribution, groups Presses into Utterances, cuts one Clip per Utterance, and owns the database that is the source of truth for the longitudinal study.
-- [Home Assistant Dashboard](./home-assistant/CONTEXT.md) — runs on the local PC; reads from the Correlator's database to present metrics and video, provides app/remote access, and has limited write access to resolve Ambiguous Press cases.
+- [Home Assistant Dashboard](./home-assistant/CONTEXT.md) — runs on the local PC; shows the Correlator's pages (live view, Review Queue, history) and polls its figures. It never opens the database; its only write is a Review Decision, sent through the Correlator.
 
-Frigate Classification, Word Detection and the Correlator are built against a stand-in stream; RPi Capture and the Home Assistant Dashboard are empty scaffolding (see `temp/phased-plan.md`).
+Frigate Classification, Word Detection, the Correlator and the Home Assistant Dashboard are built against a stand-in stream; RPi Capture is empty scaffolding (see `temp/phased-plan.md`).
 
 ## Relationships
 
@@ -72,5 +79,6 @@ Frigate Classification, Word Detection and the Correlator are built against a st
 - **RPi Capture → Word Detection**: audio stream (mic feed), read from the same RTSP stream as the video
 - **Frigate Classification → Correlator**: Board Zone presence events over the MQTT broker, plus the recorded footage Clips are cut from (through Frigate's export feature)
 - **Word Detection → Correlator**: Word-identification events, including Uncertain Matches, over the MQTT broker in the Frigate stack
-- **Correlator → Home Assistant Dashboard**: finalized Press records (read-only)
+- **Correlator → Home Assistant Dashboard**: pages, figures and Clips over the Correlator's web service
+- **Home Assistant Dashboard → Correlator**: Review Decisions, over the same web service
 - **(Future) FluentPet Connect board API → Word Detection / Correlator**: deferred integration, not part of current scope
