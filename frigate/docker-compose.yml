@@ -21,6 +21,17 @@ services:
     ports:
       - "127.0.0.1:1883:1883"
 
+  # Word Detection: listens to the same stream and publishes Word events to the broker.
+  word-detection:
+    build: ../word-detection
+    restart: unless-stopped
+    depends_on:
+      - mediamtx
+      - mosquitto
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ../word-detection/references:/references:ro
+
   frigate:
     image: ghcr.io/blakeblackshear/frigate:stable
     restart: unless-stopped
