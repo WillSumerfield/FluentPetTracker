@@ -1,0 +1,26 @@
+# Secrets / local config
+.env
+.env.*
+*.secret
+secrets.yaml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
+
+# Logs & media (recordings/clips can get large)
+*.log
+*.mp4
+*.mkv
