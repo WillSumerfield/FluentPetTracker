@@ -4,7 +4,11 @@ Runs on the local PC. Custom app that joins Frigate's presence/zone events with 
 
 ## Architecture
 
-Empty — implementation begins in Phase 4 (see `temp/phased-plan.md`).
+A Python service that runs as a container in the Frigate stack. It listens to both event streams on the MQTT broker, writes the database, and asks Frigate for each Clip.
+
+- **correlator/**: the service, plus a tool that prints what the database holds.
+- **data/**: the database and the Clips (not committed).
+- **Dockerfile**, **requirements.txt**: how the container is built.
 
 ## Language
 
@@ -13,7 +17,7 @@ The physical board with buttons mapped to Words, used by the pet.
 _Avoid_: Device, panel
 
 **Press**:
-An instance of a button being activated, producing a Word.
+An instance of a button being activated, producing a Word. A Press whose Word came from an Uncertain Match is still a Press, and carries that flag.
 _Avoid_: Click, activation, trigger
 
 **Presser**:

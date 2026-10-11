@@ -29,3 +29,6 @@ frigate/config/*
 *.log
 *.mp4
 *.mkv
+
+# Correlator runtime data (database and Clips)
+correlator/data/
