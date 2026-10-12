@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Iterable, List, Optional
 
 SCHEMA = """
+-- Holds Exchanges, despite its name: runs of Presses by anyone, one Clip each. The Utterances
+-- inside an Exchange are not stored; they follow from who is counted as each Press's Presser.
 CREATE TABLE IF NOT EXISTS utterances (
     id              INTEGER PRIMARY KEY,
     started_at      REAL NOT NULL,           -- time of the first Press

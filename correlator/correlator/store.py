@@ -2,6 +2,9 @@
 
 The recording service owns the database. This module never changes anything but the two
 review columns of a Press.
+
+The table named `utterances` holds Exchanges: runs of Presses separated by a quiet gap, each
+with one Clip. The Utterances inside an Exchange are worked out when it is read (see metrics).
 """
 
 from __future__ import annotations
@@ -13,6 +16,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Dict, Iterator, List, Optional, Tuple
 
+from . import metrics
+
 DECISIONS = ("cat", "human", "discarded")
 
 # The Presser the study counts: a Review Decision when there is one, otherwise the automatic answer.
@@ -20,14 +25,16 @@ COUNTED_PRESSER = "COALESCE(reviewed_presser, presser)"
 AWAITING_REVIEW = "presser = 'ambiguous' AND reviewed_presser IS NULL"
 
 
-class PressNotFound(Exception):
-    """Raised when a Review Decision names a Press that does not exist."""
+class NotFound(Exception):
+    """Raised when a request names a Press or an Exchange that does not exist."""
 
 
 class Store:
-    def __init__(self, path: Path, heartbeat_seconds: float) -> None:
+    def __init__(self, path: Path, heartbeat_seconds: float, response_seconds: float, counted_day_hours: float) -> None:
         self._path = path
         self._heartbeat_seconds = heartbeat_seconds
+        self._response_seconds = response_seconds
+        self._counted_day_hours = counted_day_hours
 
     @contextmanager
     def _connect(self) -> Iterator[sqlite3.Connection]:
@@ -41,85 +48,176 @@ class Store:
 
     # ---- Review Decisions -------------------------------------------------------
 
-    def set_review(self, press_id: int, decision: Optional[str]) -> dict:
-        """Record a Review Decision, or withdraw it with None. Returns the Press's Utterance."""
-        if decision is not None and decision not in DECISIONS:
-            raise ValueError(f"a Review Decision must be one of {', '.join(DECISIONS)}, or null to withdraw it")
+    def review_press(self, press_id: int, decision: Optional[str]) -> dict:
+        """Record a Review Decision, or withdraw it with None. Returns the Press's Exchange."""
+        _check(decision)
+        with self._connect() as connection:
+            row = connection.execute("SELECT utterance_id FROM presses WHERE id = ?", (press_id,)).fetchone()
+            if row is None:
+                raise NotFound(f"there is no Press {press_id}")
+            connection.execute(
+                "UPDATE presses SET reviewed_presser = ?, reviewed_at = ? WHERE id = ?",
+                (decision, _decided_at(decision), press_id),
+            )
+            return self._exchanges(connection, "id = ?", (row["utterance_id"],))[0]
+
+    def review_exchange(self, exchange_id: int, decision: Optional[str]) -> dict:
+        """Give every Press of one Exchange the same Review Decision, or withdraw them all."""
+        _check(decision)
         with self._connect() as connection:
             cursor = connection.execute(
-                "UPDATE presses SET reviewed_presser = ?, reviewed_at = ? WHERE id = ?",
-                (decision, time.time() if decision is not None else None, press_id),
+                "UPDATE presses SET reviewed_presser = ?, reviewed_at = ? WHERE utterance_id = ?",
+                (decision, _decided_at(decision), exchange_id),
             )
             if cursor.rowcount == 0:
-                raise PressNotFound(f"there is no Press {press_id}")
-            utterance_id = connection.execute(
-                "SELECT utterance_id FROM presses WHERE id = ?", (press_id,)
-            ).fetchone()[0]
-            return self._utterances(connection, "id = ?", (utterance_id,), 1)[0]
+                raise NotFound(f"there is no Exchange {exchange_id}")
+            return self._exchanges(connection, "id = ?", (exchange_id,))[0]
 
-    # ---- Utterances -------------------------------------------------------------
+    def next_for_review(self, after_press_id: int = 0) -> dict:
+        """The oldest Ambiguous Press with no Review Decision, and how many there are.
 
-    def utterances(self, limit: int, before_id: Optional[int] = None, awaiting_review: bool = False) -> List[dict]:
-        conditions, parameters = ["1 = 1"], []
-        if before_id is not None:
-            conditions.append("id < ?")
-            parameters.append(before_id)
-        if awaiting_review:
-            conditions.append(f"id IN (SELECT utterance_id FROM presses WHERE {AWAITING_REVIEW})")
+        `after_press_id` passes over that Press and every older one, for skipping.
+        """
         with self._connect() as connection:
-            return self._utterances(connection, " AND ".join(conditions), tuple(parameters), limit)
+            remaining = connection.execute(f"SELECT COUNT(*) FROM presses WHERE {AWAITING_REVIEW}").fetchone()[0]
+            row = connection.execute(
+                f"SELECT id, utterance_id FROM presses WHERE {AWAITING_REVIEW} AND id > ? ORDER BY id LIMIT 1",
+                (after_press_id,),
+            ).fetchone()
+            if row is None:
+                return {"remaining": remaining, "press_id": None, "exchange": None}
+            exchange = self._exchanges(connection, "id = ?", (row["utterance_id"],))[0]
+        return {"remaining": remaining, "press_id": row["id"], "exchange": exchange}
 
-    def clip_path(self, utterance_id: int) -> Optional[str]:
+    # ---- Exchanges --------------------------------------------------------------
+
+    def exchange(self, exchange_id: int) -> dict:
+        with self._connect() as connection:
+            found = self._exchanges(connection, "id = ?", (exchange_id,))
+        if not found:
+            raise NotFound(f"there is no Exchange {exchange_id}")
+        return found[0]
+
+    def clip_path(self, exchange_id: int) -> Optional[str]:
         with self._connect() as connection:
             row = connection.execute(
-                "SELECT clip_path FROM utterances WHERE id = ? AND clip_status = 'ready'", (utterance_id,)
+                "SELECT clip_path FROM utterances WHERE id = ? AND clip_status = 'ready'", (exchange_id,)
             ).fetchone()
         return row["clip_path"] if row else None
 
     @staticmethod
-    def _utterances(connection: sqlite3.Connection, where: str, parameters: tuple, limit: int) -> List[dict]:
+    def _exchanges(connection: sqlite3.Connection, where: str, parameters: tuple) -> List[dict]:
+        """Exchanges with their Presses and the Utterances those make, oldest first."""
         rows = connection.execute(
-            f"SELECT * FROM utterances WHERE {where} ORDER BY id DESC LIMIT ?", parameters + (limit,)
+            f"SELECT * FROM utterances WHERE {where} ORDER BY started_at, id", parameters
         ).fetchall()
         if not rows:
             return []
-        marks = ", ".join("?" * len(rows))
         presses: Dict[int, List[dict]] = {row["id"]: [] for row in rows}
         for press in connection.execute(
-            f"SELECT * FROM presses WHERE utterance_id IN ({marks}) ORDER BY utterance_id, position",
-            tuple(row["id"] for row in rows),
+            f"SELECT * FROM presses WHERE utterance_id IN (SELECT id FROM utterances WHERE {where})"
+            " ORDER BY utterance_id, position",
+            parameters,
         ):
             presses[press["utterance_id"]].append(
                 {
                     "id": press["id"],
-                    "position": press["position"],
+                    "exchange_id": press["utterance_id"],
                     "word": press["word"],
                     "pressed_at": press["pressed_at"],
                     "presser": press["reviewed_presser"] or press["presser"],
                     "automatic_presser": press["presser"],
                     "ambiguity": press["ambiguity"],
                     "review_decision": press["reviewed_presser"],
-                    "reviewed_at": press["reviewed_at"],
                     "word_uncertain": bool(press["word_uncertain"]),
-                    "word_score": press["word_score"],
                 }
             )
-        return [
-            {
-                "id": row["id"],
-                "started_at": row["started_at"],
-                "closed_at": row["closed_at"],
-                "clip_status": row["clip_status"],
-                "clip_url": f"clips/{row['id']}" if row["clip_status"] == "ready" else None,
-                "clip_error": row["clip_error"] if row["clip_status"] == "failed" else None,
-                "presses": presses[row["id"]],
-            }
-            for row in rows
-        ]
+        exchanges = []
+        for row in rows:
+            ready = row["clip_status"] == "ready"
+            exchanges.append(
+                {
+                    "id": row["id"],
+                    "started_at": row["started_at"],
+                    "ended_at": row["last_press_at"],
+                    "open": row["closed_at"] is None,
+                    "clip_status": row["clip_status"],
+                    "clip_url": f"clips/{row['id']}" if ready else None,
+                    "clip_started_at": row["clip_started_at"] if ready else None,
+                    "clip_ended_at": row["clip_ended_at"] if ready else None,
+                    "clip_error": row["clip_error"] if row["clip_status"] == "failed" else None,
+                    "presses": presses[row["id"]],
+                    "utterances": [
+                        {key: utterance[key] for key in ("presser", "press_ids", "words", "started_at", "ended_at")}
+                        for utterance in metrics.split_utterances(presses[row["id"]])
+                    ],
+                }
+            )
+        return exchanges
 
     # ---- Figures ----------------------------------------------------------------
 
+    def day(self, day: date) -> dict:
+        """One day for the Daily Summary: its Exchanges, when it was observed, and its figures."""
+        start = metrics.start_of(day)
+        end = metrics.start_of(day + timedelta(days=1))
+        now = time.time()
+        with self._connect() as connection:
+            exchanges = self._exchanges(connection, "started_at >= ? AND started_at < ?", (start, end))
+            windows = self._windows(connection, start, min(end, now))
+            earliest = connection.execute(
+                "SELECT MIN(first) FROM (SELECT MIN(started_at) AS first FROM utterances"
+                " UNION ALL SELECT MIN(started_at) FROM observation_windows)"
+            ).fetchone()[0]
+
+        utterances = [utterance for exchange in exchanges for utterance in exchange["utterances"]]
+        presses = [press for exchange in exchanges for press in exchange["presses"]]
+        figures = {"observed_hours": round(sum(e - s for s, e in windows) / 3600, 1)}
+        for presser in metrics.PRESSERS:
+            own = [utterance for utterance in utterances if utterance["presser"] == presser]
+            longest = max(own, key=lambda utterance: len(utterance["words"]), default=None)
+            figures[presser] = {
+                "words": sum(len(utterance["words"]) for utterance in own),
+                "utterances": len(own),
+                "distinct_words": len({word for utterance in own for word in utterance["words"]}),
+                "longest": longest["words"] if longest else [],
+            }
+        figures["awaiting_review"] = sum(
+            1 for press in presses if press["automatic_presser"] == "ambiguous" and press["review_decision"] is None
+        )
+        figures["discarded"] = sum(1 for press in presses if press["presser"] == "discarded")
+        today = date.today()
+        return {
+            "date": day.isoformat(),
+            "start": start,
+            "end": end,
+            "now": now,
+            "today": today.isoformat(),
+            "first_day": date.fromtimestamp(earliest).isoformat() if earliest else today.isoformat(),
+            "counted": figures["observed_hours"] > self._counted_day_hours,
+            "counted_day_hours": self._counted_day_hours,
+            "observed": [{"start": window_start, "end": window_end} for window_start, window_end in windows],
+            "figures": figures,
+            "exchanges": exchanges,
+        }
+
+    def metrics(self, period: str, anchor: date) -> dict:
+        now = time.time()
+        with self._connect() as connection:
+            presses = [
+                dict(row)
+                for row in connection.execute(
+                    f"SELECT id, utterance_id AS exchange_id, word, pressed_at, {COUNTED_PRESSER} AS presser"
+                    " FROM presses ORDER BY utterance_id, position"
+                )
+            ]
+            windows = self._windows(connection, 0.0, now)
+        return metrics.build(
+            presses, windows, period, anchor, date.today(), self._response_seconds, self._counted_day_hours
+        )
+
     def summary(self) -> dict:
+        """The few figures Home Assistant polls, and whether the pipeline is observing."""
         now = time.time()
         midnight = datetime.combine(date.today(), datetime.min.time()).timestamp()
         with self._connect() as connection:
@@ -161,92 +259,6 @@ class Store:
             "last_cat_press_at": last["pressed_at"] if last else None,
         }
 
-    def history(self, days: int) -> dict:
-        """Figures for the last `days` days including today; 0 means the whole study."""
-        now = time.time()
-        today = date.today()
-        with self._connect() as connection:
-            presses = connection.execute(
-                f"SELECT pressed_at, word, {COUNTED_PRESSER} AS who FROM presses ORDER BY pressed_at"
-            ).fetchall()
-            all_windows = self._windows(connection, 0.0, now)
-
-        earliest = min(
-            [press["pressed_at"] for press in presses[:1]] + [start for start, _end in all_windows[:1]], default=now
-        )
-        first_day = date.fromtimestamp(earliest)
-        if days > 0:
-            first_day = max(first_day, today - timedelta(days=days - 1))
-        range_start = datetime.combine(first_day, datetime.min.time()).timestamp()
-
-        observed_by_day: Dict[date, float] = {}
-        observed_by_hour = [0.0] * 24
-        for start, end in all_windows:
-            for piece_start, piece_end in _split_by_hour(max(start, range_start), end):
-                moment = datetime.fromtimestamp(piece_start)
-                observed_by_day[moment.date()] = observed_by_day.get(moment.date(), 0.0) + piece_end - piece_start
-                observed_by_hour[moment.hour] += piece_end - piece_start
-
-        cat_by_day: Dict[date, int] = {}
-        cat_by_hour = [0] * 24
-        new_words_by_day: Dict[date, List[str]] = {}
-        words: Dict[str, dict] = {}
-        known_words = set()
-        for press in presses:
-            moment = datetime.fromtimestamp(press["pressed_at"])
-            is_cat = press["who"] == "cat"
-            # Vocabulary growth counts from the start of the study, whatever range is shown.
-            if is_cat and press["word"] not in known_words:
-                known_words.add(press["word"])
-                new_words_by_day.setdefault(moment.date(), []).append(press["word"])
-            if press["pressed_at"] < range_start or press["who"] == "discarded":
-                continue
-            entry = words.setdefault(
-                press["word"], {"word": press["word"], "cat": 0, "human": 0, "ambiguous": 0, "last_cat_press_at": None}
-            )
-            entry[press["who"]] += 1
-            if is_cat:
-                entry["last_cat_press_at"] = press["pressed_at"]
-                cat_by_day[moment.date()] = cat_by_day.get(moment.date(), 0) + 1
-                cat_by_hour[moment.hour] += 1
-
-        vocabulary = sum(len(new) for day, new in new_words_by_day.items() if day < first_day)
-        by_day = []
-        for offset in range((today - first_day).days + 1):
-            day = first_day + timedelta(days=offset)
-            hours = observed_by_day.get(day, 0.0) / 3600
-            vocabulary += len(new_words_by_day.get(day, []))
-            by_day.append(
-                {
-                    "date": day.isoformat(),
-                    "observed_hours": round(hours, 2),
-                    "cat_presses": cat_by_day.get(day, 0),
-                    "cat_presses_per_hour": _rate(cat_by_day.get(day, 0), hours),
-                    "vocabulary_size": vocabulary,
-                    "new_words": new_words_by_day.get(day, []),
-                }
-            )
-        by_hour = [
-            {
-                "hour": hour,
-                "observed_hours": round(observed_by_hour[hour] / 3600, 2),
-                "cat_presses": cat_by_hour[hour],
-                "cat_presses_per_hour": _rate(cat_by_hour[hour], observed_by_hour[hour] / 3600),
-            }
-            for hour in range(24)
-        ]
-        total_hours = sum(observed_by_day.values()) / 3600
-        total_cat = sum(cat_by_day.values())
-        return {
-            "first_day": first_day.isoformat(),
-            "observed_hours": round(total_hours, 2),
-            "cat_presses": total_cat,
-            "cat_presses_per_hour": _rate(total_cat, total_hours),
-            "by_day": by_day,
-            "by_hour": by_hour,
-            "words": sorted(words.values(), key=lambda entry: (-entry["cat"], entry["word"])),
-        }
-
     @staticmethod
     def _windows(connection: sqlite3.Connection, start: float, end: float) -> List[Tuple[float, float]]:
         """Observation Windows as (start, end) pairs, cut to the given span, oldest first."""
@@ -262,16 +274,10 @@ class Store:
         return spans
 
 
-def _rate(presses: int, hours: float) -> Optional[float]:
-    """Presses per observed hour; None when too little was observed for the figure to mean anything."""
-    return round(presses / hours, 2) if hours >= 0.05 else None
+def _check(decision: Optional[str]) -> None:
+    if decision is not None and decision not in DECISIONS:
+        raise ValueError(f"a Review Decision must be one of {', '.join(DECISIONS)}, or null to withdraw it")
 
 
-def _split_by_hour(start: float, end: float) -> Iterator[Tuple[float, float]]:
-    """Cut a span into pieces that each lie inside one clock hour, in local time."""
-    while start < end:
-        moment = datetime.fromtimestamp(start)
-        next_hour = start - (moment.minute * 60 + moment.second + moment.microsecond / 1e6) + 3600
-        piece_end = min(end, next_hour)
-        yield start, piece_end
-        start = piece_end
+def _decided_at(decision: Optional[str]) -> Optional[float]:
+    return time.time() if decision is not None else None

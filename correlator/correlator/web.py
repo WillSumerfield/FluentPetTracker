@@ -10,6 +10,7 @@ import sqlite3
 import sys
 import urllib.error
 import urllib.request
+from datetime import date
 from pathlib import Path
 
 from flask import Flask, Response, jsonify, request, send_from_directory
@@ -17,67 +18,105 @@ from waitress import serve
 from werkzeug.exceptions import HTTPException
 
 from .config import Config, ConfigError
-from .store import PressNotFound, Store
+from .metrics import PERIODS
+from .store import NotFound, Store
 
 log = logging.getLogger("correlator.web")
 
 STATIC_DIR = Path(__file__).parent / "static"
-MAX_UTTERANCES_PER_REQUEST = 100
 SNAPSHOT_TIMEOUT_SECONDS = 3.0
+
+
+PAGES = {"/": "daily.html", "/review": "review.html", "/live": "live.html", "/metrics": "metrics.html"}
 
 
 def create_app(config: Config) -> Flask:
     app = Flask(__name__, static_folder=str(STATIC_DIR), static_url_path="/static")
-    store = Store(config.database_path, config.heartbeat_seconds)
-    snapshot_url = f"{config.frigate_url}/api/{config.camera}/latest.jpg?h=540"
+    store = Store(config.database_path, config.heartbeat_seconds, config.response_seconds, config.counted_day_hours)
+    snapshot_url = f"{config.frigate_url}/api/{config.camera}/latest.jpg?h=720"
 
-    @app.get("/")
-    def index() -> Response:
-        return send_from_directory(STATIC_DIR, "index.html")
+    def page(filename: str):
+        def show() -> Response:
+            return send_from_directory(STATIC_DIR, filename)
+
+        return show
+
+    for path, filename in PAGES.items():
+        app.add_url_rule(path, endpoint=filename, view_func=page(filename))
 
     @app.get("/api/summary")
     def summary() -> Response:
         return jsonify(store.summary())
 
-    @app.get("/api/utterances")
-    def utterances() -> Response:
-        limit = min(_whole_number("limit", 20), MAX_UTTERANCES_PER_REQUEST)
-        before = _whole_number("before", 0) or None
-        return jsonify(store.utterances(limit, before_id=before))
+    @app.get("/api/days/<day>")
+    def day(day: str) -> Response:
+        try:
+            chosen = date.today() if day == "today" else date.fromisoformat(day)
+        except ValueError:
+            return _problem(400, f"'{day}' is not a date such as 2026-10-12.")
+        return jsonify(store.day(chosen))
 
-    @app.get("/api/review-queue")
-    def review_queue() -> Response:
-        limit = min(_whole_number("limit", 50), MAX_UTTERANCES_PER_REQUEST)
-        return jsonify(store.utterances(limit, awaiting_review=True))
+    @app.get("/api/exchanges/<int:exchange_id>")
+    def exchange(exchange_id: int) -> Response:
+        try:
+            return jsonify(store.exchange(exchange_id))
+        except NotFound as error:
+            return _problem(404, _sentence(error))
 
-    @app.get("/api/history")
-    def history() -> Response:
-        return jsonify(store.history(_whole_number("days", 30)))
+    @app.get("/api/review/next")
+    def review_next() -> Response:
+        return jsonify(store.next_for_review(_whole_number("after", 0)))
+
+    @app.get("/api/metrics")
+    def metrics() -> Response:
+        period = request.args.get("period", "week")
+        if period not in PERIODS:
+            return _problem(400, f"The period must be one of {', '.join(PERIODS)}.")
+        try:
+            anchor = date.fromisoformat(request.args["date"]) if "date" in request.args else date.today()
+        except ValueError:
+            return _problem(400, f"'{request.args['date']}' is not a date such as 2026-10-12.")
+        return jsonify(store.metrics(period, anchor))
 
     @app.post("/api/presses/<int:press_id>/review")
-    def review(press_id: int) -> Response:
+    def review_press(press_id: int) -> Response:
+        return _review(lambda decision: store.review_press(press_id, decision), f"Press {press_id}")
+
+    @app.post("/api/exchanges/<int:exchange_id>/review")
+    def review_exchange(exchange_id: int) -> Response:
+        return _review(
+            lambda decision: store.review_exchange(exchange_id, decision), f"every Press of Exchange {exchange_id}"
+        )
+
+    def _review(record, subject: str) -> Response:
         body = request.get_json(silent=True)
         if not isinstance(body, dict) or "decision" not in body:
             return _problem(400, 'Send JSON such as {"decision": "cat"}.')
         try:
-            utterance = store.set_review(press_id, body["decision"])
+            changed = record(body["decision"])
         except ValueError as error:
             return _problem(400, _sentence(error))
-        except PressNotFound as error:
+        except NotFound as error:
             return _problem(404, _sentence(error))
-        log.info("Review Decision on Press %d: %s", press_id, body["decision"] or "withdrawn")
-        return jsonify(utterance)
+        log.info("Review Decision on %s: %s", subject, body["decision"] or "withdrawn")
+        return jsonify(changed)
 
-    @app.get("/clips/<int:utterance_id>")
-    def clip(utterance_id: int) -> Response:
-        clip_path = store.clip_path(utterance_id)
+    @app.get("/clips/<int:exchange_id>")
+    def clip(exchange_id: int) -> Response:
+        clip_path = store.clip_path(exchange_id)
         if clip_path is None:
-            return _problem(404, f"Utterance {utterance_id} has no Clip.")
+            return _problem(404, f"Exchange {exchange_id} has no Clip.")
         # conditional=True lets the browser seek within the video.
         return send_from_directory(config.data_dir, clip_path, mimetype="video/mp4", conditional=True)
 
+    @app.get("/api/live")
+    def live() -> Response:
+        """Where the Live Feed page finds Frigate's stream. An empty address means the page works it out."""
+        return jsonify({"camera": config.camera, "stream_url": config.live_stream_url})
+
     @app.get("/live.jpg")
     def live_snapshot() -> Response:
+        """A still from Frigate, shown by the Live Feed page while the moving picture is unavailable."""
         try:
             with urllib.request.urlopen(snapshot_url, timeout=SNAPSHOT_TIMEOUT_SECONDS) as reply:
                 picture = reply.read()

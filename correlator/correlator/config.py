@@ -31,6 +31,9 @@ class Config:
     clip_export_delay_seconds: float
     heartbeat_seconds: float
     web_port: int
+    response_seconds: float
+    counted_day_hours: float
+    live_stream_url: str
     log_level: str
 
     @property
@@ -62,6 +65,10 @@ class Config:
             clip_export_delay_seconds=_positive("CR_CLIP_EXPORT_DELAY_SECONDS", 20.0),
             heartbeat_seconds=_positive("CR_HEARTBEAT_SECONDS", 30.0),
             web_port=int(_positive("CR_WEB_PORT", 8600)),
+            response_seconds=_positive("CR_RESPONSE_SECONDS", 300.0),
+            counted_day_hours=_positive("CR_COUNTED_DAY_HOURS", 4.0),
+            # Where a browser reaches Frigate's live stream. Empty: port 5000 of the host showing the page.
+            live_stream_url=os.environ.get("CR_LIVE_STREAM_URL", "").strip(),
             log_level=os.environ.get("CR_LOG_LEVEL", "INFO").upper(),
         )
         if config.utterance_max_seconds <= config.utterance_gap_seconds:
