@@ -1,0 +1,15 @@
+# The "Live Feed" entry in Home Assistant's sidebar: one of the Correlator's own pages.
+# The address is opened by the browser, not by Home Assistant, so it must be reachable from
+# the device showing the dashboard. localhost works on the PC only.
+
+title: Live Feed
+views:
+  - title: Live Feed
+    path: live-feed
+    icon: mdi:cctv
+    type: panel
+    cards:
+      - type: iframe
+        url: http://localhost:8600/live
+        aspect_ratio: 56%
+        allow: autoplay; fullscreen

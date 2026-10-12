@@ -1,0 +1,14 @@
+# The "Review" entry in Home Assistant's sidebar: one of the Correlator's own pages.
+# The address is opened by the browser, not by Home Assistant, so it must be reachable from
+# the device showing the dashboard. localhost works on the PC only.
+
+title: Review
+views:
+  - title: Review
+    path: review
+    icon: mdi:account-question
+    type: panel
+    cards:
+      - type: iframe
+        url: http://localhost:8600/review
+        aspect_ratio: 56%

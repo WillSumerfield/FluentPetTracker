@@ -13,17 +13,36 @@ mobile_app:
 homeassistant:
   name: FluentPet Tracker
 
+# The Correlator's pages, one sidebar entry each.
 lovelace:
   mode: storage
   dashboards:
-    fluentpet-board:
+    fluentpet-daily:
       mode: yaml
-      title: FluentPet Board
+      title: Daily Summary
       icon: mdi:paw
       show_in_sidebar: true
-      filename: dashboards/fluentpet.yaml
+      filename: dashboards/daily-summary.yaml
+    fluentpet-review:
+      mode: yaml
+      title: Review
+      icon: mdi:account-question
+      show_in_sidebar: true
+      filename: dashboards/review.yaml
+    fluentpet-live:
+      mode: yaml
+      title: Live Feed
+      icon: mdi:cctv
+      show_in_sidebar: true
+      filename: dashboards/live-feed.yaml
+    fluentpet-metrics:
+      mode: yaml
+      title: Metrics
+      icon: mdi:chart-bar
+      show_in_sidebar: true
+      filename: dashboards/metrics.yaml
 
-# Figures polled from the Correlator's web API, for cards, automations and notifications.
+# Figures polled from the Correlator's web API, for automations and notifications.
 rest:
   - resource: http://correlator-web:8600/api/summary
     scan_interval: 30
