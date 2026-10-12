@@ -1,10 +1,16 @@
 # Stand-in stream: publishes cat.mp4 on a loop at rtsp://mediamtx:8554/board.
 # This is not the RPi Capture config; it only imitates the Pi's stream for development.
+# The picture and sound are re-encoded and paced by the clock as they are published, so the
+# stream keeps even time each time the video starts over. Copied as-is with ffmpeg's own pacing
+# (-re), it ran fast and slow by turns, and the Live Feed froze every few seconds.
 
 paths:
   board:
     runOnInit: >-
-      ffmpeg -nostdin -loglevel warning -re -stream_loop -1
-      -i /standin/cat.mp4 -c copy
+      ffmpeg -nostdin -loglevel error -stream_loop -1
+      -i /standin/cat.mp4
+      -vf realtime -af arealtime
+      -c:v libx264 -preset veryfast -tune zerolatency -bf 0 -g 30 -pix_fmt yuv420p
+      -c:a aac -b:a 128k
       -f rtsp -rtsp_transport tcp rtsp://localhost:8554/board
     runOnInitRestart: yes

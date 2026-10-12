@@ -1,6 +1,6 @@
 # Frigate Classification
 
-Runs on the local PC. Consumes the RTSP stream via FFmpeg and classifies human vs. animal presence in zones around the board. Owns the short-lived continuous recording that Clips are later cut from (Frigate's built-in behavior, not custom).
+Runs on the local PC. Consumes the RTSP stream via FFmpeg and classifies human vs. animal presence in zones around the board. Owns the short-lived continuous recording that Clips are later cut from (Frigate's built-in behavior, not custom). Also relays the stream, with sound, to the dashboard's Live Feed page.
 
 ## Architecture
 

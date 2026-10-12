@@ -19,6 +19,14 @@ record:
     retain:
       days: 0.042
 
+# Live Feed: Frigate relays the stream, with sound, to the dashboard's Live Feed page.
+# The second line adds AAC sound when the camera's own sound cannot be played by a browser.
+go2rtc:
+  streams:
+    board:
+      - rtsp://mediamtx:8554/board
+      - "ffmpeg:board#audio=aac"
+
 cameras:
   board:
     ffmpeg:
