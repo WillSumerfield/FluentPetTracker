@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily Summary · FluentPet Board</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body data-page="Daily Summary">
+  <header class="topbar">
+    <h1>Daily Summary</h1>
+    <div class="stepper">
+      <button id="day-previous" title="The day before" aria-label="The day before">‹</button>
+      <input type="date" id="day-picker" aria-label="Day shown">
+      <button id="day-next" title="The day after" aria-label="The day after">›</button>
+      <button id="day-today" class="quiet">Today</button>
+    </div>
+    <span class="status" id="status">Connecting…</span>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <main class="daily">
+    <section class="stage">
+      <div class="player card">
+        <video id="video" controls playsinline preload="metadata" hidden></video>
+        <p class="player-message" id="player-message">Pick a Clip from the timeline below.</p>
+      </div>
+
+      <div class="card strip">
+        <div class="strip-head">
+          <h2 id="clip-title">Clip</h2>
+          <span class="hint" id="clip-hint">Click a Word to jump to it.</span>
+        </div>
+        <div class="clip-timeline" id="clip-timeline"></div>
+      </div>
+
+      <div class="card strip">
+        <div class="strip-head">
+          <h2 id="day-title">Day</h2>
+          <span class="legend">
+            <span class="key cat">Cat</span><span class="key human">Human</span><span class="key ambiguous">Ambiguous</span>
+            <span class="key unobserved">Not observed</span>
+          </span>
+          <span class="zoom">
+            <button id="zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+            <button id="zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+            <button id="zoom-reset" class="quiet">Whole day</button>
+          </span>
+        </div>
+        <div class="day-timeline" id="day-timeline">
+          <canvas id="day-canvas"></canvas>
+          <div class="tooltip" id="day-tooltip" hidden></div>
+        </div>
+        <p class="hint">Click a tick to open its Clip. Scroll to zoom, drag to move.</p>
+      </div>
+    </section>
+
+    <aside class="card panel">
+      <div class="subtabs" role="tablist">
+        <button role="tab" data-subtab="clip" class="active">Clip</button>
+        <button role="tab" data-subtab="day">Day</button>
+      </div>
+      <div id="subtab-clip" class="subtab"></div>
+      <div id="subtab-day" class="subtab" hidden></div>
+    </aside>
+  </main>
+
+  <script src="static/common.js"></script>
+  <script src="static/daily.js"></script>
+</body>
+</html>

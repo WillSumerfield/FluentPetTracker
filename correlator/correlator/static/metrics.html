@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Metrics · FluentPet Board</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body data-page="Metrics">
+  <header class="topbar">
+    <h1>Metrics</h1>
+    <div class="range" id="periods">
+      <button data-period="day">Day</button>
+      <button data-period="week">Week</button>
+      <button data-period="month">Month</button>
+      <button data-period="all">Whole study</button>
+    </div>
+    <div class="stepper">
+      <button id="period-previous" title="The period before" aria-label="The period before">‹</button>
+      <span class="period-label" id="period-label">…</span>
+      <button id="period-next" title="The period after" aria-label="The period after">›</button>
+    </div>
+    <span class="status" id="status">Connecting…</span>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <main class="metrics">
+    <p class="hint" id="period-note"></p>
+    <div id="sections"></div>
+  </main>
+
+  <script src="static/common.js"></script>
+  <script src="static/metrics.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Feed · FluentPet Board</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body data-page="Live Feed" class="live-page">
+  <header class="topbar">
+    <h1>Live Feed</h1>
+    <span class="hint" id="feed-state">Connecting…</span>
+    <button id="sound" class="quiet sound-state">Sound off</button>
+    <span class="hint" id="sound-hint" hidden>Click anywhere for sound</span>
+    <span class="status" id="status">Connecting…</span>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <main class="live">
+    <video id="video" muted playsinline></video>
+    <img id="still" alt="The FluentPet Board, as the camera sees it now" hidden>
+  </main>
+
+  <script src="static/common.js"></script>
+  <script src="static/live.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Review · FluentPet Board</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body data-page="Review">
+  <header class="topbar">
+    <h1>Review</h1>
+    <span class="counter" id="remaining"></span>
+    <span class="status" id="status">Connecting…</span>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <main class="review">
+    <section class="stage">
+      <div class="player card">
+        <video id="video" muted playsinline preload="auto" hidden></video>
+        <p class="player-message" id="player-message">Loading…</p>
+      </div>
+      <div class="card strip" id="strip" hidden>
+        <div class="strip-head">
+          <h2 id="clip-title">Clip</h2>
+          <label class="toggle"><input type="checkbox" id="whole-clip"> Play the whole Clip (E)</label>
+          <label class="toggle"><input type="checkbox" id="sound"> Sound (M)</label>
+        </div>
+        <div class="clip-timeline" id="clip-timeline"></div>
+      </div>
+    </section>
+
+    <aside class="card panel review-panel" id="panel" hidden>
+      <p class="hint" id="press-when"></p>
+      <div class="review-word" id="press-word"></div>
+      <p class="review-question">Who pressed it?</p>
+      <p class="hint" id="press-reason"></p>
+      <div class="review-buttons">
+        <button class="big cat" data-decision="cat"><kbd>A</kbd> Cat</button>
+        <button class="big human" data-decision="human"><kbd>D</kbd> Human</button>
+        <button class="big discarded" data-decision="discarded"><kbd>S</kbd> Discard</button>
+      </div>
+      <div class="review-buttons minor">
+        <button id="skip"><kbd>W</kbd> Skip for now</button>
+        <button id="undo" disabled><kbd>Z</kbd> Undo last</button>
+      </div>
+      <p class="hint">Discard means the Press was not real: no button was pressed.</p>
+      <p class="hint" id="session"></p>
+      <a class="open-link" id="open-daily">Open this Clip in Daily Summary</a>
+    </aside>
+  </main>
+
+  <script src="static/common.js"></script>
+  <script src="static/review.js"></script>
+</body>
+</html>
