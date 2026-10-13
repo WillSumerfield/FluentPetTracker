@@ -13,6 +13,11 @@ mobile_app:
 homeassistant:
   name: FluentPet Tracker
 
+# Tailscale Serve forwards the phone's requests from the PC itself, which reaches this container
+# through Docker's network. Home Assistant refuses forwarded requests unless it trusts that
+# network (use_x_forwarded_for, trusted_proxies 172.16.0.0/12). This version of Home Assistant
+# keeps those settings in its own storage, not here: see the README.
+
 # The Correlator's pages, one sidebar entry each.
 lovelace:
   mode: storage
@@ -83,3 +88,68 @@ rest:
         unique_id: fluentpet_observing
         device_class: running
         value_template: "{{ value_json.observing }}"
+
+# Utterance Alerts: the Correlator announces each closed Exchange on the MQTT broker, and one
+# with an Utterance by the cat, or one still awaiting review, is sent on to the phone. Tapping it opens Daily Summary inside the
+# Home Assistant app, which shows today's latest Clip. The app can only be sent to a sidebar
+# page, not to one Clip, so an alert tapped long after it arrived lands on a newer Clip.
+# The alert's "Open Clip" button is exact: it first tells the Correlator which Clip is wanted,
+# and Daily Summary asks the Correlator as it opens.
+# Needs the MQTT integration (added in Home Assistant's own settings, broker "mosquitto") and
+# the Home Assistant app on the phone. notify.notify reaches every phone that has the app.
+automation:
+  - id: fluentpet_utterance_alert
+    alias: "FluentPet Utterance Alert"
+    mode: queued
+    triggers:
+      - trigger: mqtt
+        topic: correlator/exchanges
+    conditions:
+      - condition: template
+        value_template: >-
+          {{ trigger.payload_json is mapping and
+             (trigger.payload_json.cat_text | default('') | length > 0 or
+              trigger.payload_json.review_text | default('') | length > 0) }}
+    actions:
+      - variables:
+          cat_text: "{{ trigger.payload_json.cat_text | default('') }}"
+          review_text: "{{ trigger.payload_json.review_text | default('') }}"
+      - action: notify.notify
+        data:
+          title: "{{ 'The cat said' if cat_text else 'Awaiting review' }}"
+          message: >-
+            {{ cat_text }}{{ '\n' if cat_text and review_text }}{{ ('Awaiting review: ' if cat_text else '') ~ review_text if review_text }}
+          data:
+            url: /fluentpet-daily/daily-summary
+            tag: "fluentpet-exchange-{{ trigger.payload_json.exchange_id }}"
+            action_data:
+              exchange_id: "{{ trigger.payload_json.exchange_id }}"
+              day: "{{ trigger.payload_json.day }}"
+            actions:
+              - action: FLUENTPET_OPEN_CLIP
+                title: "Open Clip"
+                uri: /fluentpet-daily/daily-summary
+                activationMode: foreground
+
+  - id: fluentpet_open_clip
+    alias: "FluentPet Open Clip"
+    mode: queued
+    triggers:
+      - trigger: event
+        event_type: mobile_app_notification_action
+        event_data:
+          action: FLUENTPET_OPEN_CLIP
+    actions:
+      - action: rest_command.fluentpet_open_clip
+        data:
+          exchange_id: "{{ trigger.event.data.action_data.exchange_id }}"
+          day: "{{ trigger.event.data.action_data.day }}"
+
+# How the "Open Clip" button tells the Correlator which Clip Daily Summary should show.
+rest_command:
+  fluentpet_open_clip:
+    url: http://correlator-web:8600/api/open-clip
+    method: post
+    content_type: application/json
+    timeout: 5
+    payload: '{"exchange_id": {{ exchange_id | int }}, "day": "{{ day }}"}'

@@ -1,6 +1,7 @@
 # The "Review" entry in Home Assistant's sidebar: one of the Correlator's own pages.
 # The address is opened by the browser, not by Home Assistant, so it must be reachable from
-# the device showing the dashboard. localhost works on the PC only.
+# the device showing the dashboard. It is kept in secrets.yaml, which is not committed,
+# under the name fluentpet_review_url.
 
 title: Review
 views:
@@ -10,5 +11,5 @@ views:
     type: panel
     cards:
       - type: iframe
-        url: http://localhost:8600/review
-        aspect_ratio: 56%
+        url: !secret fluentpet_review_url
+        allow: autoplay; fullscreen
