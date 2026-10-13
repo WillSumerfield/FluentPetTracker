@@ -46,6 +46,12 @@ lovelace:
       icon: mdi:chart-bar
       show_in_sidebar: true
       filename: dashboards/metrics.yaml
+    fluentpet-enrolment:
+      mode: yaml
+      title: Enrolment
+      icon: mdi:microphone-plus
+      show_in_sidebar: true
+      filename: dashboards/enrolment.yaml
 
 # Figures polled from the Correlator's web API, for automations and notifications.
 rest:

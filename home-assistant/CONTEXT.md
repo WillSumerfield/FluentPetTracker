@@ -10,6 +10,7 @@ A Home Assistant container in the Frigate stack. Its sidebar lists the Correlato
 - **Review**: the Review Queue, one Press at a time.
 - **Live Feed**: the camera's picture and sound, as it happens.
 - **Metrics**: the study's figures per day, week, month or whole study, the cat and the human always in separate charts.
+- **Enrolment**: recording the board through the mic feed and turning it into Reference Clips. The work is Word Detection's.
 
 - **config/configuration.yaml**: the features switched on, the sidebar entries and the sensors.
 - **config/dashboards/**: one dashboard per sidebar entry.
