@@ -62,6 +62,12 @@ async function loadDay(day, keepSelection) {
   drawDay();
 }
 
+// Whether the page is on the day that was today when it was last read. Asking for "today"
+// rather than that date is what carries the page over midnight.
+function showingToday() {
+  return Boolean(state.day) && state.day.date === state.day.today;
+}
+
 function goToDay(day) {
   history.replaceState(null, "", `?day=${day}`);
   state.exchangeId = null;
@@ -682,10 +688,12 @@ function start() {
   });
   // Today keeps filling in; a past day does not change unless a decision is made here.
   setInterval(() => {
-    if (state.day && state.day.date === state.day.today && document.visibilityState === "visible") {
-      loadDay(state.day.date, true);
-    }
+    if (showingToday() && document.visibilityState === "visible") loadDay("today", true);
   }, DAY_REFRESH_MS);
+  onWake(() => {
+    if (!state.day) loadDay(new URLSearchParams(location.search).get("day") || "today", false);
+    else loadDay(showingToday() ? "today" : state.day.date, true);
+  });
 }
 
 start();

@@ -436,6 +436,7 @@ function start() {
     state.date = state.data.next;
     load();
   });
+  onWake(load);
   load();
 }
 

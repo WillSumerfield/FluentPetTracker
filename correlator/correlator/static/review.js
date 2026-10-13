@@ -226,6 +226,29 @@ async function undo() {
   }
 }
 
+// After a pause the queue may have moved on: the count is read again, and the Press on show
+// is left alone unless it has been decided somewhere else in the meantime.
+async function catchUpQueue() {
+  if (state.busy) return;
+  if (!state.press) {
+    showNext();
+    return;
+  }
+  try {
+    const exchange = await api(`api/exchanges/${state.exchange.id}`);
+    const press = exchange.presses.find((candidate) => candidate.id === state.press.id);
+    if (!press || press.review_decision !== null) {
+      showNext();
+      return;
+    }
+    const next = await api(`api/review/next?after=${state.skippedPast}`);
+    clearProblem();
+    $("remaining").textContent = `${plural(next.remaining, "Press", "Presses")} awaiting review`;
+  } catch (error) {
+    showNext(); // The Clip may be gone altogether; the queue says what there is now.
+  }
+}
+
 // ---- Wiring -------------------------------------------------------------------
 
 function start() {
@@ -276,6 +299,7 @@ function start() {
   });
 
   window.addEventListener("resize", drawTimeline);
+  onWake(catchUpQueue);
   showSound();
   showNext();
 }

@@ -22,6 +22,9 @@ const CODECS = ["avc1.640029", "avc1.64002A", "avc1.640033", "hvc1.1.6.L153.B0",
 const video = $("video");
 const still = $("still");
 let socket = null;
+let address = null; // where the stream is, once the Correlator has said
+let retryTimer = null;
+let retryAtOnce = false;
 let lastData = 0;
 let wantSound = readSoundChoice();
 let starting = false;
@@ -119,7 +122,8 @@ async function turnSoundOn() {
 
 // ---- The stream ---------------------------------------------------------------
 
-function connect(address) {
+function connect() {
+  retryTimer = null;
   if (!SourceType) {
     setFeedState("This browser cannot play the live stream, so a still picture is shown.");
     showStill(true);
@@ -178,8 +182,34 @@ function connect(address) {
     refilling = false;
     setFeedState("No live stream: the camera or Frigate is not sending. Trying again…");
     showStill(true);
-    setTimeout(() => connect(address), RETRY_MS);
+    retryTimer = setTimeout(connect, retryAtOnce ? 0 : RETRY_MS);
+    retryAtOnce = false;
   });
+}
+
+// Finds the stream and connects to it.
+async function begin() {
+  try {
+    address = streamAddress(await api("api/live"));
+    clearProblem();
+    connect();
+  } catch (error) {
+    showProblem(error);
+  }
+}
+
+// After a pause the old connection is dead but may not have noticed. Rather than wait for it
+// to be found stalled, a new one is made straight away.
+function reconnectNow() {
+  if (!address) {
+    begin();
+  } else if (retryTimer !== null) {
+    clearTimeout(retryTimer);
+    connect();
+  } else if (socket && socket.readyState !== WebSocket.CLOSED && Date.now() - lastData > STILL_REFRESH_MS * 2) {
+    retryAtOnce = true;
+    socket.close();
+  }
 }
 
 // How many seconds have arrived beyond what is being shown.
@@ -235,11 +265,8 @@ async function start() {
     if (socket && socket.readyState === WebSocket.OPEN && lastData && Date.now() - lastData > STALL_MS) socket.close();
   }, STILL_REFRESH_MS);
 
-  try {
-    connect(streamAddress(await api("api/live")));
-  } catch (error) {
-    showProblem(error);
-  }
+  onWake(reconnectNow);
+  await begin();
 }
 
 start();
