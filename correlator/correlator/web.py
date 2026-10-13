@@ -8,6 +8,8 @@ from __future__ import annotations
 import logging
 import sqlite3
 import sys
+import threading
+import time
 import urllib.error
 import urllib.request
 from datetime import date
@@ -25,6 +27,8 @@ log = logging.getLogger("correlator.web")
 
 STATIC_DIR = Path(__file__).parent / "static"
 SNAPSHOT_TIMEOUT_SECONDS = 3.0
+# How long a request to show one Clip stands. It only has to outlast the phone opening the page.
+OPEN_CLIP_SECONDS = 30.0
 
 
 PAGES = {"/": "daily.html", "/review": "review.html", "/live": "live.html", "/metrics": "metrics.html"}
@@ -108,6 +112,35 @@ def create_app(config: Config) -> Flask:
             return _problem(404, f"Exchange {exchange_id} has no Clip.")
         # conditional=True lets the browser seek within the video.
         return send_from_directory(config.data_dir, clip_path, mimetype="video/mp4", conditional=True)
+
+    # The Home Assistant app can open Daily Summary but cannot say which Clip to show. So the
+    # "Open Clip" button of an Utterance Alert leaves the Clip's name here just before the page
+    # opens, and the page asks for it. Kept in memory: it is worthless seconds later.
+    asked = {"exchange_id": None, "day": None, "asked_at": 0.0}
+    asked_lock = threading.Lock()
+
+    @app.post("/api/open-clip")
+    def ask_for_clip() -> Response:
+        body = request.get_json(silent=True)
+        try:
+            exchange_id = int(body["exchange_id"])
+            day = date.fromisoformat(str(body["day"])).isoformat()
+        except (KeyError, TypeError, ValueError):
+            return _problem(400, 'Send JSON such as {"exchange_id": 12, "day": "2026-10-12"}.')
+        with asked_lock:
+            asked.update(exchange_id=exchange_id, day=day, asked_at=time.time())
+        log.info("Asked to show the Clip of Exchange %d.", exchange_id)
+        return jsonify({"exchange_id": exchange_id, "day": day})
+
+    @app.get("/api/open-clip")
+    def asked_clip() -> Response:
+        with asked_lock:
+            current = dict(asked)
+        if time.time() - current["asked_at"] > OPEN_CLIP_SECONDS:
+            current = {"exchange_id": None, "day": None, "asked_at": 0.0}
+        reply = jsonify(current)
+        reply.headers["Cache-Control"] = "no-store"
+        return reply
 
     @app.get("/api/live")
     def live() -> Response:

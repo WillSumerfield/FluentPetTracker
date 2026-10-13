@@ -14,6 +14,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from typing import List, Optional
 
 import paho.mqtt.client as mqtt
@@ -21,11 +22,15 @@ import paho.mqtt.client as mqtt
 from .clips import ClipCutter
 from .config import Config, ConfigError
 from .database import Database
+from .metrics import split_utterances
 from .presence import AMBIGUOUS, PresenceTracker, attribute
 
 log = logging.getLogger("correlator")
 
 TICK_SECONDS = 1.0
+# An Exchange found closed this long after the fact (after a crash, say) is not announced:
+# an Utterance Alert about something long over would mislead.
+ANNOUNCE_WITHIN_SECONDS = 300.0
 
 
 @dataclass(frozen=True)
@@ -214,6 +219,47 @@ class Service:
         self._database.close_utterance(utterance["id"], closed_at, clip_started_at)
         words = " + ".join(press["word"] for press in self._database.presses_of(utterance["id"]))
         log.info("Utterance %d closed: %s", utterance["id"], words)
+        self._announce_exchange(utterance, closed_at)
+
+    def _announce_exchange(self, exchange: sqlite3.Row, closed_at: float) -> None:
+        """Tells the broker an Exchange has closed, with the Utterances attributed to the cat
+        and the ones still awaiting review.
+
+        Only the automatic Presser counts here: a Review Decision is never announced.
+        """
+        if time.time() - closed_at > ANNOUNCE_WITHIN_SECONDS:
+            log.info("Exchange %d closed too long ago to announce.", exchange["id"])
+            return
+        presses = [
+            {
+                "id": press["id"],
+                "exchange_id": exchange["id"],
+                "presser": press["presser"],
+                "word": press["word"],
+                "pressed_at": press["pressed_at"],
+            }
+            for press in self._database.presses_of(exchange["id"])
+        ]
+        utterances = split_utterances(presses)
+        cat_utterances = [utterance["words"] for utterance in utterances if utterance["presser"] == "cat"]
+        review_utterances = [utterance["words"] for utterance in utterances if utterance["presser"] == AMBIGUOUS]
+        message = {
+            "exchange_id": exchange["id"],
+            "day": datetime.fromtimestamp(exchange["started_at"]).date().isoformat(),
+            "started_at": exchange["started_at"],
+            "closed_at": closed_at,
+            "cat_utterances": cat_utterances,
+            "cat_text": " · ".join(" ".join(words) for words in cat_utterances),
+            "review_utterances": review_utterances,
+            "review_text": " · ".join(" ".join(words) for words in review_utterances),
+        }
+        try:
+            result = self._mqtt.publish(self._config.exchanges_topic, json.dumps(message), qos=1)
+        except (ValueError, RuntimeError) as error:
+            log.warning("Could not announce Exchange %d: %s", exchange["id"], error)
+            return
+        if result.rc != mqtt.MQTT_ERR_SUCCESS:
+            log.warning("Could not announce Exchange %d: %s", exchange["id"], mqtt.error_string(result.rc))
 
     # ---- Observation Windows ----------------------------------------------------
 

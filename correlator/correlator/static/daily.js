@@ -8,6 +8,11 @@ const DAY_REFRESH_MS = 15000;
 const MIN_VIEW_SECONDS = 60;
 const CLICK_REACH_PX = 14;
 const LANES = ["cat", "human", "ambiguous"];
+// After the page appears, how long and how often it asks whether an Utterance Alert's
+// "Open Clip" button wants one Clip shown. The button's message can arrive after the page does.
+const OPEN_CLIP_WATCH_MS = 10000;
+const OPEN_CLIP_POLL_MS = 1000;
+const HOUR_LABEL_SPACING = 44; // fewest pixels between the centres of two hour labels
 
 const state = {
   day: null, // the reply of api/days/<date>
@@ -429,6 +434,8 @@ function drawDay() {
   context.font = "11px system-ui, sans-serif";
   context.textAlign = "center";
   context.lineWidth = 1;
+  // On a narrow screen the lines stand closer than a label is wide, so some go unlabelled.
+  let lastLabelX = -Infinity;
   for (let mark = Math.ceil(state.view.start / step) * step; mark <= state.view.end; mark += step) {
     const x = Math.round(timeToX(mark, width)) + 0.5;
     context.beginPath();
@@ -438,7 +445,10 @@ function drawDay() {
     const hours = Math.floor(mark / 3600);
     const minutes = Math.floor((mark % 3600) / 60);
     const label = `${String(hours % 24).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-    if (x > 16 && x < width - 16) context.fillText(label, x, height - 6);
+    if (x > 16 && x < width - 16 && x - lastLabelX >= HOUR_LABEL_SPACING) {
+      context.fillText(label, x, height - 6);
+      lastLabelX = x;
+    }
   }
   for (let lane = 1; lane < LANES.length; lane += 1) {
     context.beginPath();
@@ -501,6 +511,37 @@ function setView(start, span) {
   drawDay();
 }
 
+// ---- A Clip asked for by an Utterance Alert ------------------------------------
+
+let askedClipSeenAt = 0; // when the last request acted on was made
+let askedClipTimer = null;
+
+// Looks, for a short while, for a request to show one Clip, and shows it once.
+function watchForAskedClip() {
+  const until = Date.now() + OPEN_CLIP_WATCH_MS;
+  clearInterval(askedClipTimer);
+  const look = async () => {
+    if (Date.now() > until) {
+      clearInterval(askedClipTimer);
+      return;
+    }
+    let asked;
+    try {
+      asked = await api("api/open-clip");
+    } catch (error) {
+      return; // The page works without it; the next look may succeed.
+    }
+    if (!asked.exchange_id || asked.asked_at <= askedClipSeenAt) return;
+    askedClipSeenAt = asked.asked_at;
+    clearInterval(askedClipTimer);
+    history.replaceState(null, "", `?day=${asked.day}&clip=${asked.exchange_id}`);
+    await loadDay(asked.day, false);
+    showSubtab("clip");
+  };
+  askedClipTimer = setInterval(look, OPEN_CLIP_POLL_MS);
+  look();
+}
+
 function setUpDayTimeline() {
   const holder = $("day-timeline");
   const tooltip = $("day-tooltip");
@@ -556,6 +597,12 @@ function setUpDayTimeline() {
   });
 
   holder.addEventListener("pointerleave", () => {
+    tooltip.hidden = true;
+  });
+
+  // A finger that turns out to be scrolling the page is taken away from the timeline.
+  holder.addEventListener("pointercancel", () => {
+    drag = null;
     tooltip.hidden = true;
   });
 
@@ -629,6 +676,10 @@ function start() {
   });
 
   loadDay(new URLSearchParams(location.search).get("day") || "today", false);
+  watchForAskedClip();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") watchForAskedClip();
+  });
   // Today keeps filling in; a past day does not change unless a decision is made here.
   setInterval(() => {
     if (state.day && state.day.date === state.day.today && document.visibilityState === "visible") {

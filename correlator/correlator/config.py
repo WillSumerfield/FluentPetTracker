@@ -19,6 +19,7 @@ class Config:
     frigate_topic_prefix: str
     words_topic: str
     word_detection_status_topic: str
+    exchanges_topic: str
     camera: str
     zone: str
     data_dir: Path
@@ -53,6 +54,8 @@ class Config:
             frigate_topic_prefix=os.environ.get("CR_FRIGATE_TOPIC_PREFIX", "frigate").strip("/"),
             words_topic=os.environ.get("CR_WORDS_TOPIC", "word-detection/words"),
             word_detection_status_topic=os.environ.get("CR_WORD_DETECTION_STATUS_TOPIC", "word-detection/status"),
+            # Where each closed Exchange is announced, for Home Assistant's Utterance Alerts.
+            exchanges_topic=os.environ.get("CR_EXCHANGES_TOPIC", "correlator/exchanges").strip("/"),
             camera=os.environ.get("CR_CAMERA", "board"),
             zone=os.environ.get("CR_ZONE", "board_zone"),
             data_dir=Path(os.environ.get("CR_DATA_DIR", "/data")),
@@ -67,7 +70,7 @@ class Config:
             web_port=int(_positive("CR_WEB_PORT", 8600)),
             response_seconds=_positive("CR_RESPONSE_SECONDS", 300.0),
             counted_day_hours=_positive("CR_COUNTED_DAY_HOURS", 4.0),
-            # Where a browser reaches Frigate's live stream. Empty: port 5000 of the host showing the page.
+            # Where a browser reaches Frigate's live stream. Empty: the page works it out from its own address.
             live_stream_url=os.environ.get("CR_LIVE_STREAM_URL", "").strip(),
             log_level=os.environ.get("CR_LOG_LEVEL", "INFO").upper(),
         )
