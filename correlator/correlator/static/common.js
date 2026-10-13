@@ -3,12 +3,18 @@
 // Shared by every page: talking to the Correlator, wording, and the pieces more than one page draws.
 
 const STATUS_REFRESH_MS = 10000;
+// A page left open while the computer slept shows what was true before. The pause is noticed
+// by a timer finding that far longer has passed than it was set for.
+const WAKE_CHECK_MS = 5000;
+const WAKE_GAP_MS = 30000;
+const WAKE_SETTLE_MS = 2000; // several signs of one waking count once
 
 const PAGES = [
   { path: "./", title: "Daily Summary" },
   { path: "review", title: "Review" },
   { path: "live", title: "Live Feed" },
   { path: "metrics", title: "Metrics" },
+  { path: "enrol", title: "Enrolment" },
 ];
 
 const PRESSER_LABELS = { cat: "Cat", human: "Human", ambiguous: "Ambiguous", discarded: "Discarded" };
@@ -131,6 +137,53 @@ function setUpHeader() {
   else window.focus();
   refreshStatus();
   setInterval(refreshStatus, STATUS_REFRESH_MS);
+  watchForWaking();
+}
+
+// ---- Catching up after a pause ------------------------------------------------
+
+const wakeListeners = [];
+let lastWoke = 0;
+let lastWakeCheck = Date.now();
+let reachable = true;
+
+// Asks to be told when the page should read everything again: it has come back into view,
+// the computer has woken, or the Correlator has become reachable after being out of reach.
+function onWake(listener) {
+  wakeListeners.push(listener);
+}
+
+function catchUp() {
+  if (Date.now() - lastWoke < WAKE_SETTLE_MS) return;
+  lastWoke = Date.now();
+  for (const listener of wakeListeners) {
+    try {
+      listener();
+    } catch (error) {
+      console.warn("A page could not catch up:", error);
+    }
+  }
+}
+
+function woke() {
+  refreshStatus();
+  catchUp();
+}
+
+function watchForWaking() {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") woke();
+  });
+  window.addEventListener("online", woke);
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) woke();
+  });
+  setInterval(() => {
+    const now = Date.now();
+    // A hidden page has its timers slowed on purpose; it catches up when it is next looked at.
+    if (now - lastWakeCheck > WAKE_GAP_MS && document.visibilityState === "visible") woke();
+    lastWakeCheck = now;
+  }, WAKE_CHECK_MS);
 }
 
 function addSidebar() {
@@ -158,15 +211,34 @@ async function refreshStatus() {
   if (!status) return;
   try {
     const summary = await api("api/summary");
-    status.textContent = summary.observing ? "Observing" : "Not observing";
+    const enrolling = !summary.observing && (await isEnrolling());
+    status.textContent = summary.observing ? "Observing" : enrolling ? "Enrolment in progress" : "Not observing";
     status.classList.toggle("on", summary.observing);
-    status.title = summary.observing
-      ? `Observing since ${clockTime(summary.observing_since, false)}. A Press now would be recorded.`
-      : "The pipeline is not live. A Press now would be missed.";
+    if (summary.observing) {
+      status.title = `Observing since ${clockTime(summary.observing_since, false)}. A Press now would be recorded.`;
+    } else if (enrolling) {
+      status.title = "An Enrolment Recording is running. No Word is reported until it ends.";
+    } else {
+      status.title = "The pipeline is not live. A Press now would be missed.";
+    }
     document.dispatchEvent(new CustomEvent("summary", { detail: summary }));
+    if (!reachable) {
+      reachable = true;
+      catchUp();
+    }
   } catch (error) {
+    reachable = false;
     status.textContent = "Unreachable";
     status.classList.remove("on");
+  }
+}
+
+// Whether the pipeline is paused on purpose, for an Enrolment Recording.
+async function isEnrolling() {
+  try {
+    return (await api("api/enrolment/state")).state === "recording";
+  } catch (error) {
+    return false; // Word Detection being out of reach is already what "Not observing" says.
   }
 }
 

@@ -453,6 +453,92 @@ table.grid td.heat.human { background: color-mix(in srgb, var(--human) calc(var(
 .first-uses { display: flex; flex-direction: column; gap: 5px; max-height: 260px; overflow-y: auto; }
 .first-use { display: flex; align-items: baseline; gap: 10px; }
 
+/* ---- Enrolment ---- */
+
+main.enrol { width: 100%; max-width: 1100px; margin: 0 auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+main.enrol p { margin: 0; }
+main.enrol .card { display: flex; flex-direction: column; gap: 10px; }
+
+.record { align-items: flex-start; }
+.record-button {
+  min-width: 220px;
+  min-height: 56px;
+  padding: 12px 22px;
+  border: 1px solid var(--cat);
+  border-radius: 12px;
+  background: var(--cat-soft);
+  color: var(--cat);
+  font-size: 17px;
+  font-weight: 600;
+}
+.record-button.stop { border-color: var(--danger); background: transparent; color: var(--danger); }
+.record-button:hover:not(:disabled) { filter: brightness(0.96); }
+.record-time { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.record-time .hint { font-weight: 400; }
+.level { width: 100%; max-width: 420px; height: 10px; border-radius: 5px; background: var(--bg); overflow: hidden; }
+.level span { display: block; height: 100%; width: 0; border-radius: 5px; background: var(--cat); transition: width 0.12s linear; }
+
+.markup-head, .detail-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.markup-head .quiet:first-of-type { margin-left: auto; }
+.quiet.danger { color: var(--danger); }
+#marking, .detail { display: flex; flex-direction: column; gap: 10px; }
+
+.wave { position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); overflow: hidden; touch-action: pan-y; }
+.wave canvas { display: block; width: 100%; }
+.wave.overview canvas { height: 96px; cursor: crosshair; }
+.wave.close-up canvas { height: 150px; cursor: pointer; }
+
+.span-list { display: flex; flex-direction: column; gap: 2px; }
+.span-row {
+  display: grid;
+  grid-template-columns: 30px 130px minmax(120px, 260px) max-content max-content;
+  justify-content: start;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+.span-row:hover { background: var(--bg); }
+.span-row.selected { border-color: var(--line); background: var(--bg); }
+.span-number { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; text-align: right; }
+.span-when { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+.span-row input {
+  width: 100%;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+}
+.span-row input.bad { border-color: var(--danger); }
+.span-row .quiet { justify-self: start; }
+
+.save-bar, .confirm-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px 14px; }
+.primary {
+  padding: 9px 18px;
+  border: 1px solid var(--cat);
+  border-radius: 10px;
+  background: var(--cat);
+  color: var(--card);
+  font-weight: 600;
+}
+.primary:hover:not(:disabled) { filter: brightness(1.06); }
+.confirm { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+.confirm ul { margin: 0; padding-left: 20px; }
+.saved { padding: 10px 14px; border: 1px solid var(--cat); border-radius: 8px; color: var(--cat); }
+
+.word-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+.word-row:first-child { border-top: 0; }
+.word-row .chip { min-width: 70px; text-align: center; }
+.word-clips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; }
+.clip-pill { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.clip-pill button { border: 0; background: var(--card); padding: 4px 9px; font-size: 13px; white-space: nowrap; }
+.clip-pill button + button { border-left: 1px solid var(--line); color: var(--muted); }
+.clip-pill button:hover { background: var(--bg); }
+.clip-pill.playing { border-color: var(--cat); }
+button.sure { color: var(--danger); border-color: var(--danger); }
+.clip-pill button.sure { color: var(--danger); }
+
 /* ---- Narrow screens ---- */
 
 @media (max-width: 900px) {
@@ -503,6 +589,14 @@ table.grid td.heat.human { background: color-mix(in srgb, var(--human) calc(var(
   .review-actions .review-buttons { flex-direction: row; margin-top: 0; }
   .review-actions button { flex: 1; justify-content: center; min-height: 44px; }
   .review-actions .big { min-height: 58px; padding: 10px 6px; }
+
+  main.enrol { padding: 10px; }
+  .record { align-items: stretch; }
+  .record-button { min-height: 72px; font-size: 19px; }
+  .level { max-width: none; }
+  .span-row { grid-template-columns: 22px 1fr max-content max-content; justify-content: stretch; }
+  .span-row .span-when { grid-column: 2 / -1; grid-row: 2; }
+  .span-row input { grid-column: 2; }
 }
 
 /* A touch screen has no keys to hint at. */

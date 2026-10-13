@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import date
 from pathlib import Path
@@ -27,11 +28,19 @@ log = logging.getLogger("correlator.web")
 
 STATIC_DIR = Path(__file__).parent / "static"
 SNAPSHOT_TIMEOUT_SECONDS = 3.0
+# Saving a long Enrolment Recording's Spans is the slowest thing Word Detection is asked for.
+ENROLMENT_TIMEOUT_SECONDS = 30.0
 # How long a request to show one Clip stands. It only has to outlast the phone opening the page.
 OPEN_CLIP_SECONDS = 30.0
 
 
-PAGES = {"/": "daily.html", "/review": "review.html", "/live": "live.html", "/metrics": "metrics.html"}
+PAGES = {
+    "/": "daily.html",
+    "/review": "review.html",
+    "/live": "live.html",
+    "/metrics": "metrics.html",
+    "/enrol": "enrol.html",
+}
 
 
 def create_app(config: Config) -> Flask:
@@ -157,6 +166,24 @@ def create_app(config: Config) -> Flask:
             return _problem(503, f"Frigate gave no picture: {error}")
         return Response(picture, mimetype="image/jpeg", headers={"Cache-Control": "no-store"})
 
+    # Enrolment belongs to Word Detection. The page sits with the others, so what it asks for
+    # is passed on from here and the answer handed back unchanged.
+    @app.route("/api/enrolment/<path:rest>", methods=["GET", "POST", "DELETE"])
+    def enrolment(rest: str) -> Response:
+        address = f"{config.word_detection_url}/{urllib.parse.quote(rest)}"
+        body = request.get_data() if request.method == "POST" else None
+        headers = {"Content-Type": request.content_type} if body and request.content_type else {}
+        asked = urllib.request.Request(address, data=body, headers=headers, method=request.method)
+        try:
+            with urllib.request.urlopen(asked, timeout=ENROLMENT_TIMEOUT_SECONDS) as reply:
+                return _passed_on(reply.status, reply.headers, reply.read())
+        except urllib.error.HTTPError as error:
+            # Word Detection said no, with its reason: that is an answer, and is handed back too.
+            return _passed_on(error.code, error.headers, error.read())
+        except (urllib.error.URLError, OSError) as error:
+            log.warning("Word Detection could not be reached for Enrolment: %s", error)
+            return _problem(503, "Word Detection cannot be reached, so Enrolment is not available.")
+
     @app.errorhandler(sqlite3.Error)
     def database_problem(error: sqlite3.Error) -> Response:
         log.error("The database could not be used: %s", error)
@@ -167,6 +194,12 @@ def create_app(config: Config) -> Flask:
         return _problem(error.code or 500, error.description or error.name)
 
     return app
+
+
+def _passed_on(status: int, headers, body: bytes) -> Response:
+    reply = Response(body, status=status, mimetype=headers.get_content_type())
+    reply.headers["Cache-Control"] = "no-store"
+    return reply
 
 
 def _whole_number(name: str, default: int) -> int:

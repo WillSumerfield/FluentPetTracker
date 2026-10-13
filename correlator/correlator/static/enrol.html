@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enrolment · FluentPet Board</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body data-page="Enrolment">
+  <header class="topbar">
+    <h1>Enrolment</h1>
+    <span class="hint" id="enrol-state"></span>
+    <span class="status" id="status">Connecting…</span>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <main class="enrol">
+    <!-- Nothing recorded yet. -->
+    <section class="card record" id="idle" hidden>
+      <h2>Record the board</h2>
+      <p>Press <b>Start</b>, press every button on the board in turn, then press <b>Stop</b>. Leave a second of quiet between buttons. Pressing a button more than once gives its Word more than one Reference Clip.</p>
+      <p class="hint" id="idle-note"></p>
+      <button class="record-button start" id="start">Start recording</button>
+    </section>
+
+    <!-- An Enrolment Recording is running. -->
+    <section class="card record" id="recording" hidden>
+      <h2>Recording the mic feed</h2>
+      <p class="record-time"><span id="elapsed">0:00</span> <span class="hint" id="limit"></span></p>
+      <div class="level" aria-hidden="true"><span id="level"></span></div>
+      <p class="hint">No Word is reported while this runs, so these presses are not counted as Presses.</p>
+      <button class="record-button stop" id="stop">Stop recording</button>
+    </section>
+
+    <!-- A finished Enrolment Recording, to be marked up. -->
+    <section class="card markup" id="ready" hidden>
+      <div class="markup-head">
+        <h2 id="recording-title">Enrolment Recording</h2>
+        <span class="hint" id="recording-note"></span>
+        <button class="quiet" id="again">Record again</button>
+        <button class="quiet danger" id="discard">Discard</button>
+      </div>
+      <p class="hint" id="loading">Loading the recording…</p>
+
+      <div id="marking" hidden>
+        <p class="hint">Each loud burst has been marked as a Span. Give each one its Word, adjust its edges, and delete any that are not a button. Drag across the recording to add one.</p>
+        <div class="wave overview" id="overview-holder"><canvas id="overview"></canvas></div>
+
+        <div class="detail" id="detail" hidden>
+          <div class="detail-head">
+            <h3 id="detail-title">Span</h3>
+            <button class="quiet" id="play"><kbd>Space</kbd> Play</button>
+            <button class="quiet" id="delete"><kbd>Del</kbd> Delete</button>
+            <span class="hint keys"><kbd>↑</kbd><kbd>↓</kbd> other Spans · drag the edges to adjust</span>
+          </div>
+          <div class="wave close-up"><canvas id="close-up"></canvas></div>
+        </div>
+
+        <div class="span-list" id="spans"></div>
+        <p class="empty" id="no-spans" hidden>No Spans yet. Nothing in the recording stood out, so drag across a button's sound to mark it.</p>
+
+        <div class="save-bar" id="save-bar">
+          <span class="hint" id="save-note"></span>
+          <button class="primary" id="save" disabled>Save Reference Clips</button>
+        </div>
+
+        <div class="confirm" id="confirm" hidden>
+          <h3>Save these Reference Clips?</h3>
+          <ul id="confirm-list"></ul>
+          <p class="hint" id="confirm-note"></p>
+          <div class="confirm-actions">
+            <button class="quiet" id="confirm-back">Back</button>
+            <button class="primary" id="confirm-save">Save and replace</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <p class="saved" id="saved" hidden></p>
+
+    <section class="card enrolled">
+      <h2>Enrolled Words</h2>
+      <p class="hint">What the mic feed is matched against. Play a Reference Clip to hear it; remove a Word when its button leaves the board.</p>
+      <div id="words"></div>
+    </section>
+  </main>
+
+  <datalist id="known-words"></datalist>
+
+  <script src="static/common.js"></script>
+  <script src="static/enrol.js"></script>
+</body>
+</html>
