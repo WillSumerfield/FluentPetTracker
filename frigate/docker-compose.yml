@@ -27,12 +27,16 @@ services:
   word-detection:
     build: ../word-detection
     restart: unless-stopped
+    user: "1000:1000" # so Reference Clips saved by Enrolment belong to the normal user, not root
     depends_on:
       - mediamtx
       - mosquitto
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ../word-detection/references:/references:ro
+      # Written by Enrolment, which is reached only through the Correlator's pages (port 8700,
+      # inside this network).
+      - ../word-detection/references:/references
+      - ../word-detection/data:/data # an Enrolment Recording, until it is saved or discarded
 
   # Correlator: joins Word events with Board Zone presence into Presses, and cuts Clips.
   correlator:

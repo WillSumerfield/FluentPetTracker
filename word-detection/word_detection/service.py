@@ -13,14 +13,16 @@ import threading
 import time
 from collections import deque
 from datetime import datetime, timezone
-from typing import Deque, List, Optional
+from typing import Deque, Optional
 
 import paho.mqtt.client as mqtt
 
 from .audio import SAMPLE_RATE, AudioError, PcmStream
 from .config import Config, ConfigError
+from .enrolment import Enrolment
 from .features import FRAMES_PER_SECOND, FeatureExtractor
-from .matcher import Match, Matcher, Reference, load_references
+from .matcher import Match, Matcher, load_references
+from .web import serve_forever
 
 log = logging.getLogger("word_detection")
 
@@ -46,15 +48,24 @@ class StreamClock:
 
 
 class Service:
-    def __init__(self, config: Config, references: List[Reference]) -> None:
+    def __init__(self, config: Config) -> None:
         self._config = config
-        self._references = references
         self._stopping = threading.Event()
+        # Set whenever the Reference Clips on disk may differ from the ones being matched against.
+        self._references_changed = threading.Event()
+        self._matching = False
         self._stream: Optional[PcmStream] = None
         self._hearing = False
         self._events_topic = f"{config.topic_prefix}/words"
         self._status_topic = f"{config.topic_prefix}/status"
         self._mqtt = self._build_mqtt_client()
+        self.enrolment = Enrolment(
+            config.references_dir,
+            config.data_dir,
+            config.enrolment_limit_seconds,
+            on_recording_changed=self._publish_status,
+            on_references_changed=self._references_changed.set,
+        )
 
     def run(self) -> None:
         """Listen until stopped, reconnecting whenever the stream drops."""
@@ -84,9 +95,11 @@ class Service:
 
     def _listen(self) -> None:
         extractor = FeatureExtractor()
-        matcher = Matcher(self._references, self._config.confident_threshold, self._config.uncertain_threshold)
+        matcher = self._new_matcher()
+        matcher_started_at = 0.0  # stream seconds at which the matcher began counting frames
         clock = StreamClock()
         samples_received = 0
+        was_recording = False
 
         with PcmStream(self._config.stream_url) as stream:
             self._stream = stream
@@ -97,20 +110,62 @@ class Service:
                         self._set_hearing(True)
                     samples_received += chunk.size
                     clock.observe(samples_received)
+
+                    # An Enrolment Recording takes the audio instead: nothing heard in it is a Press.
+                    if self.enrolment.recording:
+                        self.enrolment.feed(chunk)
+                        was_recording = True
+                        continue
+                    if was_recording or self._references_changed.is_set():
+                        was_recording = False
+                        extractor = FeatureExtractor()
+                        matcher = self._new_matcher()
+                        matcher_started_at = samples_received / SAMPLE_RATE
+                    if matcher is None:
+                        continue
                     for match in matcher.push(extractor.push(chunk)):
-                        self._publish(match, clock.time_of(match.start_seconds))
+                        self._publish(match, clock.time_of(matcher_started_at + match.start_seconds))
             finally:
                 self._stream = None
                 self._set_hearing(False)
+
+    def _new_matcher(self) -> Optional[Matcher]:
+        """A matcher for the Reference Clips now on disk, or None while no Word is enrolled."""
+        self._references_changed.clear()
+        references = load_references(self._config.references_dir)
+        was_matching, self._matching = self._matching, bool(references)
+        if references:
+            words = sorted({reference.word for reference in references})
+            log.info("Using %d Reference Clip(s) for %d Word(s): %s", len(references), len(words), ", ".join(words))
+        else:
+            log.warning(
+                "No usable Reference Clips in %s. Nothing is reported until a Word is enrolled.",
+                self._config.references_dir,
+            )
+        if was_matching != self._matching:
+            self._publish_status()
+        if not references:
+            return None
+        return Matcher(references, self._config.confident_threshold, self._config.uncertain_threshold)
 
     def _set_hearing(self, hearing: bool) -> None:
         """Report whether the stream is being heard. While it is not, a Press would be missed."""
         if hearing != self._hearing:
             self._hearing = hearing
+            self.enrolment.set_hearing(hearing)
             self._publish_status()
 
     def _publish_status(self) -> None:
-        self._mqtt.publish(self._status_topic, "online" if self._hearing else "offline", qos=1, retain=True)
+        """Say whether a Press now would be reported. Only "online" means it would."""
+        if not self._hearing:
+            status = "offline"
+        elif self.enrolment.recording:
+            status = "enrolling"
+        elif not self._matching:
+            status = "no-references"
+        else:
+            status = "online"
+        self._mqtt.publish(self._status_topic, status, qos=1, retain=True)
 
     def _publish(self, match: Match, started_at: float) -> None:
         payload = {
@@ -156,21 +211,18 @@ def main() -> int:
         print(f"Word Detection cannot start: {error}", file=sys.stderr)
         return 2
 
+    logging.getLogger("waitress").setLevel(logging.WARNING)  # its "Serving on" line says nothing new
     logging.basicConfig(
         level=config.log_level,
         format="%(asctime)s  %(levelname)-7s  %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
-    references = load_references(config.references_dir)
-    if not references:
-        log.error("No usable Reference Clips in %s. Enrol at least one Word first.", config.references_dir)
-        return 1
-
-    words = sorted({reference.word for reference in references})
-    log.info("Loaded %d Reference Clip(s) for %d Word(s): %s", len(references), len(words), ", ".join(words))
-
-    service = Service(config, references)
+    service = Service(config)
+    threading.Thread(
+        target=serve_forever, args=(service.enrolment, config.web_port), name="enrolment-web", daemon=True
+    ).start()
+    log.info("Enrolment is served on port %d.", config.web_port)
     signal.signal(signal.SIGTERM, service.stop)
     signal.signal(signal.SIGINT, service.stop)
     service.run()

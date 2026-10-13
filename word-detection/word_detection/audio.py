@@ -38,6 +38,23 @@ def read_wav(path: Path) -> np.ndarray:
     return _to_floats(raw)
 
 
+def write_wav(path: Path, samples: np.ndarray) -> None:
+    """Write floats between -1 and 1 as a 16 kHz mono 16-bit WAV file."""
+    try:
+        with wave.open(str(path), "wb") as wav:
+            wav.setnchannels(1)
+            wav.setsampwidth(BYTES_PER_SAMPLE)
+            wav.setframerate(SAMPLE_RATE)
+            wav.writeframes(to_pcm(samples))
+    except (OSError, wave.Error) as error:
+        raise AudioError(f"cannot write {path}: {error}") from error
+
+
+def to_pcm(samples: np.ndarray) -> bytes:
+    """Floats between -1 and 1 as the raw 16-bit audio a WAV file holds."""
+    return (np.clip(samples, -1.0, 1.0) * 32767.0).astype("<i2").tobytes()
+
+
 def decode_command(source: str) -> List[str]:
     """Build the FFmpeg command that decodes a source to raw 16 kHz mono audio."""
     # Only fatal messages are shown: a sender that restarts its own clock (as the looping

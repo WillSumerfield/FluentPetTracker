@@ -18,6 +18,9 @@ class Config:
     mqtt_port: int
     topic_prefix: str
     references_dir: Path
+    data_dir: Path
+    web_port: int
+    enrolment_limit_seconds: float
     confident_threshold: float
     uncertain_threshold: float
     retry_seconds: float
@@ -31,6 +34,10 @@ class Config:
             mqtt_port=int(_number("WD_MQTT_PORT", 1883)),
             topic_prefix=os.environ.get("WD_TOPIC_PREFIX", "word-detection").strip("/"),
             references_dir=Path(os.environ.get("WD_REFERENCES_DIR", "/references")),
+            # Where an Enrolment Recording is kept until it is saved or discarded.
+            data_dir=Path(os.environ.get("WD_DATA_DIR", "/data")),
+            web_port=int(_number("WD_WEB_PORT", 8700)),
+            enrolment_limit_seconds=_number("WD_ENROLMENT_LIMIT_SECONDS", 600.0),
             confident_threshold=_number("WD_CONFIDENT_THRESHOLD", 0.75),
             uncertain_threshold=_number("WD_UNCERTAIN_THRESHOLD", 0.55),
             retry_seconds=_number("WD_RETRY_SECONDS", 5.0),
@@ -43,6 +50,10 @@ class Config:
             )
         if config.retry_seconds <= 0:
             raise ConfigError("WD_RETRY_SECONDS must be greater than 0")
+        if config.enrolment_limit_seconds <= 0:
+            raise ConfigError("WD_ENROLMENT_LIMIT_SECONDS must be greater than 0")
+        if not 0 < config.web_port < 65536:
+            raise ConfigError("WD_WEB_PORT must be a port number between 1 and 65535")
         return config
 
 
