@@ -1,6 +1,6 @@
 # Home Assistant Dashboard
 
-Runs on the local PC. Presents the live picture, each day's Clips and the study's figures from the Correlator, and is where a person records Review Decisions. It never opens the Correlator's database: everything goes through the Correlator's web service. Reachable from the PC itself only, for now.
+Runs on the local PC. Presents the live picture, each day's Clips and the study's figures from the Correlator, and is where a person records Review Decisions. It never opens the Correlator's database: everything goes through the Correlator's web service. Reachable from the PC and, over the private network the household's devices share, from a phone through the Home Assistant app.
 
 ## Architecture
 
@@ -20,3 +20,7 @@ A Home Assistant container in the Frigate stack. Its sidebar lists the Correlato
 **Review Queue**:
 The Ambiguous Presses that have no Review Decision yet, oldest first, each shown with its Clip so a person can decide it.
 _Avoid_: Inbox, backlog, pending list
+
+**Utterance Alert**:
+The message sent to a person's phone when an Exchange closes holding at least one Utterance the pipeline attributed to the cat, or at least one still awaiting review. It lists those Utterances in order, the ones awaiting review marked as such, and leads to the Exchange's Clip. A Review Decision never causes one.
+_Avoid_: Press notification, push, ping

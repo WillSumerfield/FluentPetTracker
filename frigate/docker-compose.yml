@@ -1,5 +1,7 @@
 # Frigate Classification stack. Run from this directory: docker compose up -d
-# All ports are bound to 127.0.0.1, so nothing is reachable from other devices on the network.
+# All ports are bound to 127.0.0.1, so nothing is reachable from other devices on the home network.
+# The phone reaches Home Assistant, the Correlator's pages and Frigate's live stream through
+# Tailscale Serve, which forwards to these same local ports (see the README).
 
 services:
   # Stand-in for the Pi: loops a video file as the RTSP stream the Pi will later serve.

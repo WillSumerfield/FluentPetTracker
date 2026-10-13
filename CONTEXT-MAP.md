@@ -44,7 +44,7 @@
  2 │   ├── CONTEXT.md
  2 │   ├── Dockerfile
  2 │   ├── references
- 3 │   │   └── happy
+ 3 │   │   └── play
  2 │   ├── requirements.txt
  2 │   └── word_detection
  3 │       ├── audio.py                ← reads Reference Clips and the stream
@@ -81,5 +81,6 @@ Frigate Classification, Word Detection, the Correlator and the Home Assistant Da
 - **Frigate Classification → Correlator**: Board Zone presence events over the MQTT broker, plus the recorded footage Clips are cut from (through Frigate's export feature)
 - **Word Detection → Correlator**: Word-identification events, including Uncertain Matches, over the MQTT broker in the Frigate stack
 - **Correlator → Home Assistant Dashboard**: pages, figures and Clips over the Correlator's web service
+- **Correlator → Home Assistant Dashboard**: each closed Exchange, with the Utterances attributed to the cat and those awaiting review, over the MQTT broker; Home Assistant turns these into Utterance Alerts
 - **Home Assistant Dashboard → Correlator**: Review Decisions, over the same web service
 - **(Future) FluentPet Connect board API → Word Detection / Correlator**: deferred integration, not part of current scope
