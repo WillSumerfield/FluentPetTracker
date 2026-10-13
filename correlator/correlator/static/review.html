@@ -25,7 +25,7 @@
         <div class="strip-head">
           <h2 id="clip-title">Clip</h2>
           <label class="toggle"><input type="checkbox" id="whole-clip"> Play the whole Clip (E)</label>
-          <label class="toggle"><input type="checkbox" id="sound"> Sound (M)</label>
+          <label class="toggle"><input type="checkbox" id="sound" checked> Sound (M)</label>
         </div>
         <div class="clip-timeline" id="clip-timeline"></div>
       </div>
@@ -36,14 +36,16 @@
       <div class="review-word" id="press-word"></div>
       <p class="review-question">Who pressed it?</p>
       <p class="hint" id="press-reason"></p>
-      <div class="review-buttons">
-        <button class="big cat" data-decision="cat"><kbd>A</kbd> Cat</button>
-        <button class="big human" data-decision="human"><kbd>D</kbd> Human</button>
-        <button class="big discarded" data-decision="discarded"><kbd>S</kbd> Discard</button>
-      </div>
-      <div class="review-buttons minor">
-        <button id="skip"><kbd>W</kbd> Skip for now</button>
-        <button id="undo" disabled><kbd>Z</kbd> Undo last</button>
+      <div class="review-actions">
+        <div class="review-buttons">
+          <button class="big cat" data-decision="cat"><kbd>A</kbd> Cat</button>
+          <button class="big human" data-decision="human"><kbd>D</kbd> Human</button>
+          <button class="big discarded" data-decision="discarded"><kbd>S</kbd> Discard</button>
+        </div>
+        <div class="review-buttons minor">
+          <button id="skip"><kbd>W</kbd> Skip for now</button>
+          <button id="undo" disabled><kbd>Z</kbd> Undo last</button>
+        </div>
       </div>
       <p class="hint">Discard means the Press was not real: no button was pressed.</p>
       <p class="hint" id="session"></p>

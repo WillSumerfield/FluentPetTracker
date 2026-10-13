@@ -127,6 +127,8 @@ function phraseChips(words, presser) {
 // A sidebar listing the pages is only needed outside Home Assistant, whose own sidebar lists them.
 function setUpHeader() {
   if (window.self === window.top) addSidebar();
+  // Inside Home Assistant the keyboard belongs to its own page until this one asks for it.
+  else window.focus();
   refreshStatus();
   setInterval(refreshStatus, STATUS_REFRESH_MS);
 }
@@ -204,7 +206,8 @@ function drawClipTimeline(container, exchange, options) {
     let row = rowEnds.findIndex((rowEnd) => rowEnd <= left);
     if (row === -1) row = rowEnds.length;
     rowEnds[row] = left + boxWidth + 3;
-    box.style.left = `${place(press.pressed_at) * 100}%`;
+    // A Word at the very end of the Clip is drawn a little early rather than cut off.
+    box.style.left = `min(${place(press.pressed_at) * 100}%, calc(100% - ${boxWidth}px))`;
     box.style.top = `${row * 28}px`;
     box.title = `${press.word} at ${clockTime(press.pressed_at)}, ${PRESSER_LABELS[press.presser].toLowerCase()}`;
     box.addEventListener("click", (event) => {

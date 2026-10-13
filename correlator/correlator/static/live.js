@@ -4,7 +4,7 @@
 // cannot be had, a still from Frigate is shown instead and the connection is retried.
 //
 // Sound comes on by itself where the browser allows it. Where it does not, the feed starts
-// silent and the sound comes on at the first click or key press anywhere on the page.
+// silent and the sound is tried again on a timer until the browser lets it through.
 
 const RETRY_MS = 4000;
 const STILL_REFRESH_MS = 1000;
@@ -14,6 +14,8 @@ const KEEP_BUFFER_SECONDS = 20;
 // Playback stays this far behind what has arrived, so an uneven stream does not freeze it.
 const CUSHION_SECONDS = 1.2;
 const SOUND_CHOICE_KEY = "fluentpet.live.sound";
+// How often the sound is tried again while the browser is making the feed play silently.
+const SOUND_RETRY_SECONDS = 2;
 // What go2rtc is asked for; only the ones this browser can play are sent.
 const CODECS = ["avc1.640029", "avc1.64002A", "avc1.640033", "hvc1.1.6.L153.B0", "mp4a.40.2", "mp4a.40.5", "flac", "opus"];
 
@@ -23,12 +25,19 @@ let socket = null;
 let lastData = 0;
 let wantSound = readSoundChoice();
 let starting = false;
+let soundTries = 0; // since the feed last had to start silently
 let refilling = false; // paused after running dry, until the cushion is back
+
+// An iPhone has no MediaSource, only this close relative of it (iOS 17.1 and later).
+const SourceType = window.MediaSource || window.ManagedMediaSource;
 
 function streamAddress(live) {
   if (live.stream_url) return live.stream_url;
-  const scheme = location.protocol === "https:" ? "wss" : "ws";
-  return `${scheme}://${location.hostname}:5000/live/mse/api/ws?src=${encodeURIComponent(live.camera)}`;
+  const source = `/live/mse/api/ws?src=${encodeURIComponent(live.camera)}`;
+  // Over HTTPS the page is being forwarded from the PC, and Frigate's stream is forwarded
+  // beside it at the same address. Otherwise this is the PC itself, where Frigate is on port 5000.
+  if (location.protocol === "https:") return `wss://${location.host}${source}`;
+  return `ws://${location.hostname}:5000${source}`;
 }
 
 function setFeedState(text) {
@@ -59,11 +68,9 @@ function keepSoundChoice() {
 }
 
 function showSound() {
-  const waiting = wantSound && video.muted;
   $("sound").textContent = video.muted ? "Sound off" : "Sound on";
   $("sound").title = video.muted ? "Turn the sound on (M)" : "Turn the sound off (M)";
   $("sound").classList.toggle("on", !video.muted);
-  $("sound-hint").hidden = !waiting;
 }
 
 function setSound(on) {
@@ -85,6 +92,7 @@ async function startPlaying() {
     if (error.name === "NotAllowedError") {
       video.muted = true;
       await video.play().catch(() => {});
+      soundTries = 0;
     }
   } finally {
     starting = false;
@@ -92,26 +100,36 @@ async function startPlaying() {
   }
 }
 
-// The browser's refusal lasts only until the page is first used.
-function soundOnFirstUse(event) {
-  if (!wantSound || !video.muted || event.target === $("sound")) return;
-  if (event.type === "keydown" && event.key.toLowerCase() === "m") return;
+async function turnSoundOn() {
+  if (!wantSound || !video.muted || video.paused || starting || refilling) return;
+  // A refused try makes the feed stumble. After the first, wait until the browser says it would allow one.
+  if (soundTries > 0 && !(navigator.userActivation && navigator.userActivation.hasBeenActive)) return;
+  soundTries += 1;
   video.muted = false;
-  if (!refilling) video.play().catch(() => {});
-  showSound();
+  try {
+    // A browser that still refuses pauses the feed here, so playing it again is the test.
+    await video.play();
+  } catch (error) {
+    video.muted = true;
+    video.play().catch(() => {});
+  } finally {
+    showSound();
+  }
 }
 
 // ---- The stream ---------------------------------------------------------------
 
 function connect(address) {
-  if (!("MediaSource" in window)) {
+  if (!SourceType) {
     setFeedState("This browser cannot play the live stream, so a still picture is shown.");
     showStill(true);
     return;
   }
-  const mediaSource = new MediaSource();
+  const mediaSource = new SourceType();
   const waiting = [];
   let buffer = null;
+  // The iPhone's kind only opens once the video is told not to offer AirPlay.
+  video.disableRemotePlayback = true;
   video.src = URL.createObjectURL(mediaSource);
 
   const feed = () => {
@@ -126,7 +144,7 @@ function connect(address) {
   socket = new WebSocket(address);
   socket.binaryType = "arraybuffer";
   socket.addEventListener("open", () => {
-    const playable = CODECS.filter((codec) => MediaSource.isTypeSupported(`video/mp4; codecs="${codec}"`));
+    const playable = CODECS.filter((codec) => SourceType.isTypeSupported(`video/mp4; codecs="${codec}"`));
     const ask = () => socket.send(JSON.stringify({ type: "mse", value: playable.join(",") }));
     if (mediaSource.readyState === "open") ask();
     else mediaSource.addEventListener("sourceopen", ask, { once: true });
@@ -202,8 +220,7 @@ function trim(buffer) {
 async function start() {
   setUpHeader();
   $("sound").addEventListener("click", () => setSound(video.muted));
-  document.addEventListener("click", soundOnFirstUse);
-  document.addEventListener("keydown", soundOnFirstUse);
+  setInterval(turnSoundOn, SOUND_RETRY_SECONDS * 1000);
   document.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey || event.key.toLowerCase() !== "m") return;
     setSound(video.muted);

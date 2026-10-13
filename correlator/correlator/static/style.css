@@ -241,8 +241,6 @@ main.daily, main.review {
   border-radius: 8px;
   background: var(--bg);
   cursor: pointer;
-  /* Room for a Word box that starts at the very end of the Clip. */
-  margin-right: 70px;
   max-height: 150px;
   overflow-y: auto;
   overflow-x: visible;
@@ -271,7 +269,7 @@ main.daily, main.review {
 .word-box.selected { border-color: currentColor; box-shadow: 0 0 0 1px currentColor; z-index: 1; }
 .playhead { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--text); pointer-events: none; }
 
-.day-timeline { position: relative; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; cursor: grab; touch-action: none; }
+.day-timeline { position: relative; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; cursor: grab; touch-action: pan-y; }
 .day-timeline canvas { display: block; width: 100%; }
 .tooltip {
   position: absolute;
@@ -364,6 +362,7 @@ main.daily, main.review {
 .review-panel { padding: 20px; gap: 10px; overflow-y: auto; }
 .review-word .chip { font-size: 34px; padding: 4px 22px; }
 .review-question { font-size: 18px; font-weight: 600; margin: 8px 0 0; }
+.review-actions { display: flex; flex-direction: column; gap: 10px; }
 .review-buttons { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
 .review-buttons.minor { flex-direction: row; }
 .review-buttons button {
@@ -479,4 +478,34 @@ table.grid td.heat.human { background: color-mix(in srgb, var(--human) calc(var(
   .page-links { flex-direction: row; flex-wrap: wrap; }
   .page-links a { padding: 5px 10px; }
   .sidebar .status { margin: 0 0 0 auto; padding: 0; }
+}
+
+/* ---- Phones ---- */
+
+@media (max-width: 600px) {
+  main.daily, main.review { padding: 10px; gap: 10px; }
+  .player { aspect-ratio: 16 / 9; }
+
+  /* Review is worked one-handed: the decisions stay along the bottom edge, under the thumb. */
+  .review-panel { padding: 14px; overflow: visible; }
+  .review-word .chip { font-size: 28px; }
+  .review-question { margin-top: 0; }
+  .review-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    gap: 8px;
+    margin: 0 -14px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: var(--card);
+    border-top: 1px solid var(--line);
+  }
+  .review-actions .review-buttons { flex-direction: row; margin-top: 0; }
+  .review-actions button { flex: 1; justify-content: center; min-height: 44px; }
+  .review-actions .big { min-height: 58px; padding: 10px 6px; }
+}
+
+/* A touch screen has no keys to hint at. */
+@media (hover: none) {
+  kbd, .hint.keys { display: none; }
 }

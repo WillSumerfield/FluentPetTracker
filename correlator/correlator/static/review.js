@@ -6,6 +6,9 @@ const LOOP_BEFORE_SECONDS = 3;
 const LOOP_AFTER_SECONDS = 3;
 // Under the left hand, so a sitting can be worked through without looking down.
 const REVIEW_KEYS = { a: "cat", d: "human", s: "discarded" };
+const SOUND_CHOICE_KEY = "fluentpet.review.sound";
+// How often the sound is tried again while the browser is making a Clip play silently.
+const SOUND_RETRY_SECONDS = 2;
 
 const state = {
   exchange: null,
@@ -17,6 +20,8 @@ const state = {
 };
 
 const video = $("video");
+let wantSound = readSoundChoice();
+let soundTries = 0; // since the Clip last had to start silently
 
 // ---- Showing a Press ----------------------------------------------------------
 
@@ -111,8 +116,72 @@ function loopSpan() {
 function restartLoop() {
   if (video.hidden || !state.press) return;
   video.currentTime = loopSpan().start;
-  // Browsers refuse to start a video with sound unasked; it stays paused until a key or click.
-  video.play().catch(() => {});
+  startPlaying();
+}
+
+// ---- Sound --------------------------------------------------------------------
+
+function readSoundChoice() {
+  try {
+    return localStorage.getItem(SOUND_CHOICE_KEY) !== "off";
+  } catch (error) {
+    return true; // Storage can be blocked; sound is wanted unless it was turned off.
+  }
+}
+
+function keepSoundChoice() {
+  try {
+    localStorage.setItem(SOUND_CHOICE_KEY, wantSound ? "on" : "off");
+  } catch (error) {
+    // The choice then lasts only until the page is closed.
+  }
+}
+
+// The box shows what is heard, not what is wanted, so it never claims sound the browser is holding back.
+function showSound() {
+  $("sound").checked = !video.muted;
+}
+
+function setSound(on) {
+  wantSound = on;
+  keepSoundChoice();
+  video.muted = !on;
+  if (on && !video.hidden && state.press) video.play().catch(() => {});
+  showSound();
+}
+
+// Plays with sound if the browser allows it. If it does not, the Clip plays silently and
+// the sound is tried again on a timer until the browser lets it through.
+async function startPlaying() {
+  try {
+    video.muted = !wantSound;
+    await video.play();
+  } catch (error) {
+    if (error.name === "NotAllowedError" && wantSound) {
+      video.muted = true;
+      await video.play().catch(() => {});
+      soundTries = 0;
+    }
+  } finally {
+    showSound();
+  }
+}
+
+async function turnSoundOn() {
+  if (!wantSound || !video.muted || video.hidden || video.paused) return;
+  // A refused try makes the Clip stumble. After the first, wait until the browser says it would allow one.
+  if (soundTries > 0 && !(navigator.userActivation && navigator.userActivation.hasBeenActive)) return;
+  soundTries += 1;
+  video.muted = false;
+  try {
+    // A browser that still refuses pauses the Clip here, so playing it again is the test.
+    await video.play();
+  } catch (error) {
+    video.muted = true;
+    video.play().catch(() => {});
+  } finally {
+    showSound();
+  }
 }
 
 // ---- Deciding -----------------------------------------------------------------
@@ -168,9 +237,9 @@ function start() {
   $("skip").addEventListener("click", skip);
   $("undo").addEventListener("click", undo);
   $("whole-clip").addEventListener("change", restartLoop);
-  $("sound").addEventListener("change", (event) => {
-    video.muted = !event.target.checked;
-  });
+  $("sound").addEventListener("change", (event) => setSound(event.target.checked));
+  setInterval(turnSoundOn, SOUND_RETRY_SECONDS * 1000);
+  video.addEventListener("volumechange", showSound);
 
   video.addEventListener("loadedmetadata", restartLoop);
   video.addEventListener("timeupdate", () => {
@@ -207,6 +276,7 @@ function start() {
   });
 
   window.addEventListener("resize", drawTimeline);
+  showSound();
   showNext();
 }
 
