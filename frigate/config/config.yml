@@ -40,8 +40,8 @@ cameras:
     detect:
       enabled: true
       # Matches the stand-in video. Change to 1280x720 for the real camera.
-      width: 360
-      height: 640
+      width: 640
+      height: 360
       fps: 5
     objects:
       # A dog detection is treated as the cat: small cats get mislabelled.
@@ -49,10 +49,22 @@ cameras:
         - person
         - cat
         - dog
+      # TEST SETTING: a confidence nothing reaches, so nobody is ever seen at the board and
+      # every Press is Ambiguous. Remove this block to have Presses attributed again.
+      filters:
+        person:
+          threshold: 0.99
+          min_score: 0.99
+        cat:
+          threshold: 0.99
+          min_score: 0.99
+        dog:
+          threshold: 0.99
+          min_score: 0.99
     zones:
       # Placeholder drawn for the stand-in video. Redraw against the real camera.
       board_zone:
-        coordinates: 0.05,0.35,0.95,0.35,0.95,1,0.05,1
+        coordinates: 0.25,0.25,1,0.25,1,1,0.25,1
         objects:
           - person
           - cat
