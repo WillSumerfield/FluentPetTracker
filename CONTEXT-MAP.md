@@ -50,17 +50,27 @@
  3 │       ├── audio.py                ← reads Reference Clips and the stream
  3 │       ├── check.py                ← lists the Words heard in a recording
  3 │       ├── config.py               ← settings from environment variables
- 3 │       ├── enrol.py                ← Enrolment tool
+ 3 │       ├── enrol.py                ← Enrolment tool for the command line
+ 3 │       ├── enrolment.py            ← Enrolment Recording, Spans, saving
  3 │       ├── features.py             ← audio to spectrogram
  3 │       ├── matcher.py              ← spectrogram to Words
- 3 │       └── service.py              ← the running service
+ 3 │       ├── references.py           ← the Reference Clip files
+ 3 │       ├── service.py              ← the running service
+ 3 │       └── web.py                  ← Enrolment over the web
+ 1 ├── wsl
+ 2 │   ├── fluentpet-mtu.service       ← keeps the pages reachable after sleep
+ 2 │   ├── fluentpet-mtu.sh
+ 2 │   └── install.sh
  1 └── temp
+ 2     ├── enrolment-and-sleep-plan.md ← the Enrolment page and recovery after sleep
  2     ├── goal.md                     ← what/why/how, resolved decisions, glossary
  2     ├── phase-1-notes.md            ← RPi Capture implementation decisions
  2     ├── phase-2-notes.md            ← Frigate Classification implementation decisions
  2     ├── phase-3-notes.md            ← Word Detection implementation decisions
  2     ├── phase-4-notes.md            ← Correlator implementation decisions
  2     ├── phase-5-notes.md            ← Home Assistant Dashboard implementation decisions
+ 2     ├── phase-6-notes.md
+ 2     ├── phase-7-notes.md            ← Enrolment page and sleep recovery: decisions and tests
  2     └── phased-plan.md              ← how the goal gets built, in phases
 ```
 
@@ -83,4 +93,5 @@ Frigate Classification, Word Detection, the Correlator and the Home Assistant Da
 - **Correlator → Home Assistant Dashboard**: pages, figures and Clips over the Correlator's web service
 - **Correlator → Home Assistant Dashboard**: each closed Exchange, with the Utterances attributed to the cat and those awaiting review, over the MQTT broker; Home Assistant turns these into Utterance Alerts
 - **Home Assistant Dashboard → Correlator**: Review Decisions, over the same web service
+- **Home Assistant Dashboard → Word Detection**: Enrolment (recording, Spans, and the Reference Clips kept), passed on unchanged by the Correlator's web service. Only Word Detection reads or writes Reference Clips.
 - **(Future) FluentPet Connect board API → Word Detection / Correlator**: deferred integration, not part of current scope
