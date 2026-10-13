@@ -1,0 +1,12 @@
+[Unit]
+Description=FluentPet: keep the network adapter at the packet size Tailscale needs
+Documentation=file:///usr/local/sbin/fluentpet-mtu.sh
+After=network.target
+
+[Service]
+ExecStart=/usr/local/sbin/fluentpet-mtu.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
