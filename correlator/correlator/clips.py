@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import shutil
 import urllib.error
 import urllib.request
@@ -20,6 +21,7 @@ MAX_ATTEMPTS = 3
 RETRY_SECONDS = 30.0
 EXPORT_TIMEOUT_SECONDS = 180.0
 REQUEST_TIMEOUT_SECONDS = 10.0
+EXPORT_NAME = re.compile(r"utterance-\d+")
 
 # Made once, by hand, in the folder meant for Clips. A folder without it is taken to be the
 # wrong place: for one, the empty folder Docker makes when the drive for Clips is not connected.
@@ -55,6 +57,8 @@ class ClipCutter:
         self._database = database
         self._not_before: Dict[int, float] = {}  # Utterance id -> earliest time to try again
         self._exporting_since: Dict[int, float] = {}
+        # Frigate goes on listing an export for a moment after deleting it; not asked twice.
+        self._removed: set = set()
 
     def advance(self, now: float) -> None:
         """Start exports that are due and collect the ones that have finished."""
@@ -76,6 +80,7 @@ class ClipCutter:
             return
         for utterance in exporting:
             self._collect(utterance, exports.get(utterance["clip_export_id"]), now)
+        self._remove_leftovers(exports, {utterance["clip_export_id"] for utterance in exporting})
 
     def _start(self, utterance, now: float) -> None:
         utterance_id = utterance["id"]
@@ -102,7 +107,9 @@ class ClipCutter:
         utterance_id = utterance["id"]
         started = self._exporting_since.setdefault(utterance_id, now)
         if export is None:
-            self._give_up_or_retry(utterance, "Frigate no longer lists the export", now)
+            # Frigate queues an export before listing it, so one not listed yet may still come.
+            if now - started > EXPORT_TIMEOUT_SECONDS:
+                self._give_up_or_retry(utterance, "Frigate no longer lists the export", now)
             return
         if export.get("in_progress"):
             if now - started > EXPORT_TIMEOUT_SECONDS:
@@ -134,8 +141,29 @@ class ClipCutter:
         )
         try:
             self._request("POST", "/api/exports/delete", {"ids": [export["id"]]})
+            self._removed.add(export["id"])
         except FrigateError as error:
             log.warning("Clip saved, but Frigate's copy of the export could not be removed: %s", error)
+
+    def _remove_leftovers(self, exports: Dict[str, dict], in_use: set) -> None:
+        """Delete finished exports of ours that no Clip is waiting on, such as one that
+        finished after its Utterance had already started another."""
+        leftovers = [
+            export_id
+            for export_id, export in exports.items()
+            if export_id not in in_use
+            and export_id not in self._removed
+            and not export.get("in_progress")
+            and EXPORT_NAME.fullmatch(export.get("name") or "")
+        ]
+        if not leftovers:
+            return
+        try:
+            self._request("POST", "/api/exports/delete", {"ids": leftovers})
+            self._removed.update(leftovers)
+            log.info("Removed %d leftover export(s) from Frigate.", len(leftovers))
+        except FrigateError as error:
+            log.warning("Cannot remove leftover exports from Frigate: %s", error)
 
     def _give_up_or_retry(self, utterance, error: str, now: float) -> None:
         utterance_id = utterance["id"]
