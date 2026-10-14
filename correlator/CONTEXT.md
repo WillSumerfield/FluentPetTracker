@@ -7,7 +7,8 @@ Runs on the local PC. Custom app that joins Frigate's presence/zone events with 
 Two containers in the Frigate stack, built from the same code. The recording service listens to both event streams on the MQTT broker, writes the database, and asks Frigate for each Clip. The web service serves the dashboard pages and the API behind them; the only thing it writes is a Review Decision.
 
 - **correlator/**: the recording service, the web service with its pages, and a tool that prints what the database holds. One page, Enrolment, belongs to Word Detection: the web service only passes its requests on.
-- **data/**: the database and the Clips (not committed).
+- **data/**: the database (not committed).
+- **Clips** are kept in a folder of their own, set by `CR_CLIPS_DIR`; in the Frigate stack, a folder on the second drive (D:). The folder must hold a `.fluentpet-clips` file, made once by hand; without it, as when the drive is not connected, Clips are not saved, though Presses still are.
 - **Dockerfile**, **requirements.txt**: how the container is built.
 
 ## Language
