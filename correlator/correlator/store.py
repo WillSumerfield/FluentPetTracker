@@ -18,7 +18,7 @@ from typing import Dict, Iterator, List, Optional, Tuple
 
 from . import metrics
 
-DECISIONS = ("cat", "human", "discarded")
+DECISIONS = ("pet", "human", "discarded")
 
 # The Presser the study counts: a Review Decision when there is one, otherwise the automatic answer.
 COUNTED_PRESSER = "COALESCE(reviewed_presser, presser)"
@@ -231,10 +231,10 @@ class Store:
             }
             awaiting = connection.execute(f"SELECT COUNT(*) FROM presses WHERE {AWAITING_REVIEW}").fetchone()[0]
             vocabulary = connection.execute(
-                f"SELECT COUNT(DISTINCT word) FROM presses WHERE {COUNTED_PRESSER} = 'cat'"
+                f"SELECT COUNT(DISTINCT word) FROM presses WHERE {COUNTED_PRESSER} = 'pet'"
             ).fetchone()[0]
             last = connection.execute(
-                f"SELECT word, pressed_at FROM presses WHERE {COUNTED_PRESSER} = 'cat' ORDER BY pressed_at DESC LIMIT 1"
+                f"SELECT word, pressed_at FROM presses WHERE {COUNTED_PRESSER} = 'pet' ORDER BY pressed_at DESC LIMIT 1"
             ).fetchone()
             window = connection.execute(
                 "SELECT * FROM observation_windows WHERE ended_at IS NULL ORDER BY id DESC LIMIT 1"
@@ -244,19 +244,19 @@ class Store:
         # A window whose heartbeat has stopped belongs to a recording service that is no longer running.
         observing = window is not None and now - window["last_seen_at"] <= 3 * self._heartbeat_seconds
         observed_hours = sum(end - start for start, end in windows) / 3600
-        cat_today = today.get("cat", 0)
+        pet_today = today.get("pet", 0)
         return {
             "observing": observing,
             "observing_since": window["started_at"] if observing else None,
             "observed_hours_today": round(observed_hours, 2),
-            "cat_presses_today": cat_today,
-            "cat_presses_per_hour_today": round(cat_today / observed_hours, 2) if observed_hours >= 0.05 else None,
+            "pet_presses_today": pet_today,
+            "pet_presses_per_hour_today": round(pet_today / observed_hours, 2) if observed_hours >= 0.05 else None,
             "human_presses_today": today.get("human", 0),
             "ambiguous_presses_today": today.get("ambiguous", 0),
             "awaiting_review": awaiting,
             "vocabulary_size": vocabulary,
-            "last_cat_word": last["word"] if last else None,
-            "last_cat_press_at": last["pressed_at"] if last else None,
+            "last_pet_word": last["word"] if last else None,
+            "last_pet_press_at": last["pressed_at"] if last else None,
         }
 
     @staticmethod

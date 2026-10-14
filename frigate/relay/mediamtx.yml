@@ -1,9 +1,0 @@
-# Relays the Pi's stream (RPi Capture) at rtsp://mediamtx:8554/board, the same address the
-# stand-in uses, so Frigate and Word Detection read it unchanged. The Pi sends one copy of
-# the stream over Wi-Fi, however many readers there are here.
-# The Pi's address is fixed by a DHCP reservation on the router.
-
-paths:
-  board:
-    source: rtsp://192.168.0.104:8554/board
-    rtspTransport: tcp

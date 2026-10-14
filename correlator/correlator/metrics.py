@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta
 from typing import Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
 
 PERIODS = ("day", "week", "month", "all")
-PRESSERS = ("cat", "human")
+PRESSERS = ("pet", "human")
 
 # How many periods of the chosen size the trend charts look back over, the chosen one included.
 TREND_LENGTH = {"day": 14, "week": 12, "month": 12}

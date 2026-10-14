@@ -3,14 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
-CAT = "cat"
+PET = "pet"
 HUMAN = "human"
 AMBIGUOUS = "ambiguous"
-
-# A dog detection is treated as the cat: small cats get mislabelled.
-SUBJECT_BY_LABEL = {"person": HUMAN, "cat": CAT, "dog": CAT}
 
 KEEP_SECONDS = 600.0
 
@@ -23,8 +20,8 @@ class Attribution:
 
 def attribute(subjects: Set[str]) -> Attribution:
     """Exactly one subject in the Board Zone is the Presser; anything else is an Ambiguous Press."""
-    if subjects == {CAT}:
-        return Attribution(CAT, None)
+    if subjects == {PET}:
+        return Attribution(PET, None)
     if subjects == {HUMAN}:
         return Attribution(HUMAN, None)
     return Attribution(AMBIGUOUS, "both" if subjects else "nobody")
@@ -33,9 +30,11 @@ def attribute(subjects: Set[str]) -> Attribution:
 class PresenceTracker:
     """Remembers the stretches of time each subject spent in the Board Zone."""
 
-    def __init__(self, camera: str, zone: str) -> None:
+    def __init__(self, camera: str, zone: str, pet_labels: Iterable[str]) -> None:
         self._camera = camera
         self._zone = zone
+        # Several labels may stand for the Pet: a small cat is often labelled a dog.
+        self._subject_by_label = {"person": HUMAN, **{label: PET for label in pet_labels}}
         self._present: Dict[str, Tuple[str, float]] = {}  # Frigate object id -> (subject, since)
         self._past: List[Tuple[str, float, float]] = []  # (subject, from, until)
 
@@ -43,7 +42,7 @@ class PresenceTracker:
         """Take one message from Frigate's events topic."""
         after = event.get("after") or {}
         object_id = after.get("id")
-        subject = SUBJECT_BY_LABEL.get(after.get("label"))
+        subject = self._subject_by_label.get(after.get("label"))
         if after.get("camera") != self._camera or subject is None or not object_id:
             return
 

@@ -6,9 +6,32 @@ All times are stored as seconds since 1970 (UTC).
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
+import time
 from pathlib import Path
 from typing import Iterable, List, Optional
+
+log = logging.getLogger("correlator.database")
+
+PRESSES_TABLE = """
+CREATE TABLE IF NOT EXISTS presses (
+    id               INTEGER PRIMARY KEY,
+    utterance_id     INTEGER NOT NULL REFERENCES utterances (id),
+    position         INTEGER NOT NULL,       -- order within the Utterance, from 1
+    pressed_at       REAL NOT NULL,
+    word             TEXT NOT NULL,
+    word_score       REAL,
+    word_uncertain   INTEGER NOT NULL DEFAULT 0,
+    reference_clip   TEXT,
+    presser          TEXT NOT NULL CHECK (presser IN ('pet', 'human', 'ambiguous')),
+    ambiguity        TEXT CHECK (ambiguity IN ('both', 'nobody')),
+    subjects_seen    TEXT NOT NULL,          -- JSON list of who was in the Board Zone
+    reviewed_presser TEXT CHECK (reviewed_presser IN ('pet', 'human', 'discarded')),
+    reviewed_at      REAL,
+    UNIQUE (utterance_id, position)
+);
+"""
 
 SCHEMA = """
 -- Holds Exchanges, despite its name: runs of Presses by anyone, one Clip each. The Utterances
@@ -28,23 +51,7 @@ CREATE TABLE IF NOT EXISTS utterances (
     clip_error      TEXT
 );
 
-CREATE TABLE IF NOT EXISTS presses (
-    id               INTEGER PRIMARY KEY,
-    utterance_id     INTEGER NOT NULL REFERENCES utterances (id),
-    position         INTEGER NOT NULL,       -- order within the Utterance, from 1
-    pressed_at       REAL NOT NULL,
-    word             TEXT NOT NULL,
-    word_score       REAL,
-    word_uncertain   INTEGER NOT NULL DEFAULT 0,
-    reference_clip   TEXT,
-    presser          TEXT NOT NULL CHECK (presser IN ('cat', 'human', 'ambiguous')),
-    ambiguity        TEXT CHECK (ambiguity IN ('both', 'nobody')),
-    subjects_seen    TEXT NOT NULL,          -- JSON list of who was in the Board Zone
-    reviewed_presser TEXT CHECK (reviewed_presser IN ('cat', 'human', 'discarded')),
-    reviewed_at      REAL,
-    UNIQUE (utterance_id, position)
-);
-
+""" + PRESSES_TABLE + """
 CREATE TABLE IF NOT EXISTS observation_windows (
     id           INTEGER PRIMARY KEY,
     started_at   REAL NOT NULL,
@@ -57,14 +64,95 @@ CREATE INDEX IF NOT EXISTS utterances_started_at ON utterances (started_at);
 """
 
 
+class MigrationError(Exception):
+    """Raised when an older database could not be brought up to date. Nothing in it was changed."""
+
+
 class Database:
     def __init__(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
+        self._path = path
         self._connection = sqlite3.connect(str(path), isolation_level=None)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute("PRAGMA journal_mode = WAL")
+        self._migrate_cat_to_pet()
         self._connection.execute("PRAGMA foreign_keys = ON")
         self._connection.executescript(SCHEMA)
+
+    # ---- Migrations -------------------------------------------------------------
+
+    def _migrate_cat_to_pet(self) -> None:
+        """Databases made before the Pet was named store it as 'cat'. Rebuild `presses` to say 'pet'.
+
+        A copy of the whole database is kept beside it first. The rebuild is one transaction,
+        checked before it is committed, so a failure leaves the database as it was.
+        """
+        row = self._one("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'presses'")
+        if row is None or "'cat'" not in row["sql"]:
+            return
+
+        backup_path = self._backup_path()
+        log.warning("This database stores the Pet as 'cat'. Updating it; a copy is kept at %s.", backup_path)
+        try:
+            backup = sqlite3.connect(str(backup_path))
+            try:
+                self._connection.backup(backup)
+            finally:
+                backup.close()
+        except (sqlite3.Error, OSError) as error:
+            raise MigrationError(f"could not make the copy at {backup_path}, so nothing was changed: {error}") from error
+
+        connection = self._connection
+        before = connection.execute("SELECT COUNT(*) FROM presses").fetchone()[0]
+        # Foreign keys are switched off while `presses` is swapped for its rebuilt copy.
+        connection.execute("PRAGMA foreign_keys = OFF")
+        try:
+            connection.execute("BEGIN IMMEDIATE")
+            connection.execute(PRESSES_TABLE.replace("CREATE TABLE IF NOT EXISTS presses", "CREATE TABLE presses_new"))
+            connection.execute(
+                "INSERT INTO presses_new SELECT id, utterance_id, position, pressed_at, word, word_score,"
+                " word_uncertain, reference_clip,"
+                " CASE presser WHEN 'cat' THEN 'pet' ELSE presser END,"
+                " ambiguity, subjects_seen,"
+                " CASE reviewed_presser WHEN 'cat' THEN 'pet' ELSE reviewed_presser END,"
+                " reviewed_at FROM presses"
+            )
+            for press in connection.execute("SELECT id, subjects_seen FROM presses_new").fetchall():
+                subjects = json.loads(press["subjects_seen"])
+                renamed = sorted("pet" if subject == "cat" else subject for subject in subjects)
+                if renamed != subjects:
+                    connection.execute(
+                        "UPDATE presses_new SET subjects_seen = ? WHERE id = ?", (json.dumps(renamed), press["id"])
+                    )
+            connection.execute("DROP TABLE presses")
+            connection.execute("ALTER TABLE presses_new RENAME TO presses")
+            connection.execute("CREATE INDEX IF NOT EXISTS presses_pressed_at ON presses (pressed_at)")
+
+            after = connection.execute("SELECT COUNT(*) FROM presses").fetchone()[0]
+            left = connection.execute(
+                "SELECT COUNT(*) FROM presses WHERE presser = 'cat' OR reviewed_presser = 'cat'"
+            ).fetchone()[0]
+            broken = connection.execute("PRAGMA foreign_key_check").fetchall()
+            if after != before or left or broken:
+                raise MigrationError(
+                    f"the check failed ({before} Presses before, {after} after, {left} still 'cat',"
+                    f" {len(broken)} broken links), so nothing was changed"
+                )
+            connection.execute("COMMIT")
+        except Exception as error:
+            if connection.in_transaction:
+                connection.execute("ROLLBACK")
+            if isinstance(error, MigrationError):
+                raise
+            raise MigrationError(f"{error}; nothing was changed") from error
+        log.warning("Database updated: all %d Presses kept, and the Pet is now stored as 'pet'.", after)
+
+    def _backup_path(self) -> Path:
+        backup = self._path.with_name(f"{self._path.stem}.before-pet{self._path.suffix}")
+        if backup.exists():
+            # Never overwrite an earlier copy, which may be the only one from before an attempt.
+            backup = self._path.with_name(f"{self._path.stem}.before-pet-{int(time.time())}{self._path.suffix}")
+        return backup
 
     def close(self) -> None:
         self._connection.close()

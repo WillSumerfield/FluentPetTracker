@@ -21,9 +21,9 @@ import paho.mqtt.client as mqtt
 
 from .clips import ClipCutter, clip_folder_problem
 from .config import Config, ConfigError
-from .database import Database
+from .database import Database, MigrationError
 from .metrics import split_utterances
-from .presence import AMBIGUOUS, PresenceTracker, attribute
+from .presence import AMBIGUOUS, PET, PresenceTracker, attribute
 
 log = logging.getLogger("correlator")
 
@@ -49,7 +49,7 @@ class Service:
     def __init__(self, config: Config, database: Database) -> None:
         self._config = config
         self._database = database
-        self._presence = PresenceTracker(config.camera, config.zone)
+        self._presence = PresenceTracker(config.camera, config.zone, config.pet_labels)
         self._clips = ClipCutter(config, database)
         self._inbox: "queue.Queue[tuple]" = queue.Queue()
         self._stopping = threading.Event()
@@ -198,6 +198,8 @@ class Service:
 
         if attribution.presser == AMBIGUOUS:
             who = f"Ambiguous Press ({attribution.ambiguity} in the Board Zone)"
+        elif attribution.presser == PET:
+            who = f"pressed by {self._config.pet_name}"
         else:
             who = f"pressed by the {attribution.presser}"
         log.info(
@@ -227,7 +229,7 @@ class Service:
         self._announce_exchange(utterance, closed_at)
 
     def _announce_exchange(self, exchange: sqlite3.Row, closed_at: float) -> None:
-        """Tells the broker an Exchange has closed, with the Utterances attributed to the cat
+        """Tells the broker an Exchange has closed, with the Utterances attributed to the Pet
         and the ones still awaiting review.
 
         Only the automatic Presser counts here: a Review Decision is never announced.
@@ -246,15 +248,16 @@ class Service:
             for press in self._database.presses_of(exchange["id"])
         ]
         utterances = split_utterances(presses)
-        cat_utterances = [utterance["words"] for utterance in utterances if utterance["presser"] == "cat"]
+        pet_utterances = [utterance["words"] for utterance in utterances if utterance["presser"] == PET]
         review_utterances = [utterance["words"] for utterance in utterances if utterance["presser"] == AMBIGUOUS]
         message = {
             "exchange_id": exchange["id"],
             "day": datetime.fromtimestamp(exchange["started_at"]).date().isoformat(),
             "started_at": exchange["started_at"],
             "closed_at": closed_at,
-            "cat_utterances": cat_utterances,
-            "cat_text": " · ".join(" ".join(words) for words in cat_utterances),
+            "pet_name": self._config.pet_name,
+            "pet_utterances": pet_utterances,
+            "pet_text": " · ".join(" ".join(words) for words in pet_utterances),
             "review_utterances": review_utterances,
             "review_text": " · ".join(" ".join(words) for words in review_utterances),
         }
@@ -336,12 +339,18 @@ def main() -> int:
 
     try:
         database = Database(config.database_path)
+    except MigrationError as error:
+        log.error("The database at %s could not be updated: %s. The Correlator will not start.",
+                  config.database_path, error)
+        return 1
     except (sqlite3.Error, OSError) as error:
         log.error("Cannot open the database at %s: %s", config.database_path, error)
         return 1
     log.info(
-        "Database ready at %s. An Utterance closes %.0f s after its last Press.",
+        "Database ready at %s. The Pet is %s (Frigate labels: %s). An Exchange closes %.0f s after its last Press.",
         config.database_path,
+        config.pet_name,
+        ", ".join(config.pet_labels),
         config.utterance_gap_seconds,
     )
 

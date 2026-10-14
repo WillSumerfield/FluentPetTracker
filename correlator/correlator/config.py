@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Tuple
 
 
 class ConfigError(Exception):
@@ -17,6 +18,8 @@ class Config:
     mqtt_port: int
     frigate_url: str
     frigate_topic_prefix: str
+    pet_name: str
+    pet_labels: Tuple[str, ...]
     words_topic: str
     word_detection_status_topic: str
     exchanges_topic: str
@@ -51,6 +54,9 @@ class Config:
             mqtt_port=int(_positive("CR_MQTT_PORT", 1883)),
             frigate_url=os.environ.get("CR_FRIGATE_URL", "http://frigate:5000").rstrip("/"),
             frigate_topic_prefix=os.environ.get("CR_FRIGATE_TOPIC_PREFIX", "frigate").strip("/"),
+            # What the pages and alerts call the Pet, and the Frigate labels that count as it.
+            pet_name=os.environ.get("CR_PET_NAME", "").strip() or "Pet",
+            pet_labels=_labels("CR_PET_LABELS", ("cat", "dog")),
             words_topic=os.environ.get("CR_WORDS_TOPIC", "word-detection/words"),
             word_detection_status_topic=os.environ.get("CR_WORD_DETECTION_STATUS_TOPIC", "word-detection/status"),
             # Where each closed Exchange is announced, for Home Assistant's Utterance Alerts.
@@ -81,7 +87,19 @@ class Config:
         )
         if config.utterance_max_seconds <= config.utterance_gap_seconds:
             raise ConfigError("CR_UTTERANCE_MAX_SECONDS must be greater than CR_UTTERANCE_GAP_SECONDS")
+        if "person" in config.pet_labels:
+            raise ConfigError("CR_PET_LABELS must not include 'person': a person is always the human")
         return config
+
+
+def _labels(name: str, default: Tuple[str, ...]) -> Tuple[str, ...]:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    labels = tuple(label.strip().lower() for label in raw.split(",") if label.strip())
+    if not labels:
+        raise ConfigError(f"{name} must name at least one Frigate label, such as 'cat'")
+    return labels
 
 
 def _positive(name: str, default: float) -> float:

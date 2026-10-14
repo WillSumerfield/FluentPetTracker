@@ -5,6 +5,7 @@ Run with: python -m correlator.web
 
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
 import sys
@@ -60,6 +61,13 @@ def create_app(config: Config) -> Flask:
     for path, filename in PAGES.items():
         app.add_url_rule(path, endpoint=filename, view_func=page(filename))
 
+    # Read by every page before its own script, so the Pet's name is there from the first label drawn.
+    settings_script = "window.FLUENTPET_SETTINGS = " + json.dumps({"pet_name": config.pet_name}) + ";\n"
+
+    @app.get("/settings.js")
+    def settings() -> Response:
+        return Response(settings_script, mimetype="text/javascript", headers={"Cache-Control": "no-cache"})
+
     @app.get("/api/summary")
     def summary() -> Response:
         return jsonify(store.summary())
@@ -107,7 +115,7 @@ def create_app(config: Config) -> Flask:
     def _review(record, subject: str) -> Response:
         body = request.get_json(silent=True)
         if not isinstance(body, dict) or "decision" not in body:
-            return _problem(400, 'Send JSON such as {"decision": "cat"}.')
+            return _problem(400, 'Send JSON such as {"decision": "pet"}.')
         try:
             changed = record(body["decision"])
         except ValueError as error:
