@@ -393,6 +393,78 @@ main.live video, main.live img { width: 100%; height: 100%; object-fit: contain;
 
 main.metrics { width: 100%; max-width: 1280px; margin: 0 auto; padding: 16px; }
 .metric { margin-top: 26px; }
+.icon { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The tabs, one group of charts at a time, and the search beside them. */
+.metric-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.metric-tabs { display: flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+.metric-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.metric-tab:hover { color: var(--text); background: var(--bg); }
+.metric-tab.active { background: var(--cat-soft); color: var(--cat); }
+.metric-tab:focus-visible, .metric-search input:focus-visible { outline: 2px solid var(--cat); outline-offset: 1px; }
+.tab-caption { display: none; }
+
+.metric-search { position: relative; margin-left: auto; width: 290px; }
+.metric-search .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); display: flex; color: var(--muted); pointer-events: none; }
+.metric-search input {
+  width: 100%;
+  padding: 8px 34px 8px 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+}
+.metric-search input::-webkit-search-cancel-button { display: none; }
+.metric-search .search-key { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.metric-search input:focus ~ .search-key { display: none; }
+
+.suggestions {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 360px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+.suggestion-heading { padding: 6px 8px 3px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.suggestion { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px; cursor: pointer; }
+.suggestion .icon { color: var(--muted); width: 16px; height: 16px; }
+.suggestion.active { background: var(--selected); }
+.suggestion-label { font-size: 14px; }
+.suggestion-detail { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.suggestion-empty { padding: 10px 8px; color: var(--muted); font-size: 13px; }
+
+#view-note { margin-top: 12px; }
+.view-head { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
+.view-head h2 { font-size: 17px; }
+.view-head + #sections > .metric:first-child { margin-top: 14px; }
+
+/* A Word searched for, wherever it appears. */
+.chip.match { box-shadow: inset 0 0 0 2px currentColor; }
+.match-row { background: var(--selected); border-radius: 6px; }
+.ranked-row.match-row, .first-use.match-row, .reply.match-row { padding: 2px 4px; }
+.card > .missing { margin: -6px 0 10px; }
+table.grid th.match { color: var(--text); background: var(--selected); }
+table.grid td.crossed { border-color: var(--muted); }
 .metric > h2 { font-size: 17px; }
 .metric > .hint { margin-top: 2px; }
 .metric > .range { margin-top: 10px; }
@@ -589,6 +661,16 @@ button.sure { color: var(--danger); border-color: var(--danger); }
   .review-actions .review-buttons { flex-direction: row; margin-top: 0; }
   .review-actions button { flex: 1; justify-content: center; min-height: 44px; }
   .review-actions .big { min-height: 58px; padding: 10px 6px; }
+
+  /* Metrics: the tabs shrink to icons, the open one named beneath, and search takes a row of its own. */
+  .metric-nav { gap: 6px; }
+  .metric-tabs { width: 100%; }
+  .metric-tab { flex: 1; justify-content: center; padding: 9px 0; }
+  .metric-tab .tab-label { display: none; }
+  .metric-tab .icon { width: 20px; height: 20px; }
+  .tab-caption { display: block; width: 100%; margin: 0; text-align: center; color: var(--cat); font-size: 13px; font-weight: 600; }
+  .tab-caption:empty { display: none; }
+  .metric-search { width: 100%; margin-left: 0; }
 
   main.enrol { padding: 10px; }
   .record { align-items: stretch; }

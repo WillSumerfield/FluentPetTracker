@@ -8,6 +8,11 @@ set -e
 MEDIAMTX_VERSION=v1.21.1
 MEDIAMTX_SHA256=6a3aa635fb60ea9b8d566ec306f0a42ff1b6b52a3942bc2baffbe55880d4c3dd
 CONFIG_TXT=/boot/firmware/config.txt
+# Only these may Pause or Resume the stream: the PC's address on the LAN, which needs a DHCP
+# reservation of its own. Several may be given, separated by spaces.
+PC_ADDRESSES="192.168.0.164"
+CONTROL_PORT=8800
+PAUSED_FILE=/var/lib/rpi-capture/paused
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "This must be run as root:  sudo sh $0" >&2
@@ -31,7 +36,7 @@ reboot_needed=no
 
 echo "Installing the camera and sound tools (this can take a while on the Zero 2 W)..."
 apt-get update -q
-apt-get install -y -q --no-install-recommends rpicam-apps-lite ffmpeg alsa-utils
+apt-get install -y -q --no-install-recommends rpicam-apps-lite ffmpeg alsa-utils python3 sudo
 
 if [ "$(/usr/local/bin/mediamtx --version 2>/dev/null)" = "$MEDIAMTX_VERSION" ]; then
     echo "MediaMTX $MEDIAMTX_VERSION is already installed."
@@ -59,6 +64,31 @@ install -m 755 "$here/capture.sh" /usr/local/bin/rpi-capture-stream
 install -d /usr/local/etc
 install -m 644 "$here/mediamtx.yml" /usr/local/etc/mediamtx.yml
 install -m 644 "$here/mediamtx.service" /etc/systemd/system/mediamtx.service
+
+# Pause and Resume run as their own user, allowed by sudo to switch MediaMTX off and on, and nothing else.
+if ! id rpi-capture-control >/dev/null 2>&1; then
+    useradd --system --no-create-home --shell /usr/sbin/nologin rpi-capture-control
+fi
+install -m 755 "$here/control.py" /usr/local/bin/rpi-capture-control
+install -m 644 "$here/rpi-capture-control.service" /etc/systemd/system/rpi-capture-control.service
+printf '# Written by rpi-capture/install.sh; change it there.\nCONTROL_PORT=%s\nCONTROL_ALLOW="127.0.0.1 %s"\n' \
+    "$CONTROL_PORT" "$PC_ADDRESSES" > /etc/default/rpi-capture-control
+# The same path control.py runs, since sudo matches the command exactly.
+systemctl_path=/usr/bin/systemctl
+if [ ! -x "$systemctl_path" ]; then
+    echo "$systemctl_path was not found, so Pause and Resume cannot be set up." >&2
+    exit 1
+fi
+sudoers=$(mktemp)
+printf 'rpi-capture-control ALL=(root) NOPASSWD: %s disable --now mediamtx.service, %s enable --now mediamtx.service\n' \
+    "$systemctl_path" "$systemctl_path" > "$sudoers"
+if ! visudo -cqf "$sudoers"; then
+    rm -f "$sudoers"
+    echo "The sudo rule for Pause and Resume did not check out, so nothing was changed in sudoers." >&2
+    exit 1
+fi
+install -m 440 "$sudoers" /etc/sudoers.d/rpi-capture-control
+rm -f "$sudoers"
 
 # The Arducam 12MP (IMX708) is named outright: auto-detection does not always find it.
 if ! grep -q '^dtoverlay=imx708' "$CONFIG_TXT"; then
@@ -98,16 +128,31 @@ if [ ! -f /etc/systemd/system.conf.d/rpi-capture-watchdog.conf ]; then
 fi
 
 systemctl daemon-reload
-systemctl enable mediamtx.service >/dev/null 2>&1
-systemctl restart mediamtx.service
+# A Pause is kept: installing again must not switch the camera and mic back on.
+if [ -f "$PAUSED_FILE" ]; then
+    paused=yes
+    echo "The stream is Paused, so it was left off. Resume it from the Live Feed page."
+else
+    paused=no
+    systemctl enable mediamtx.service >/dev/null 2>&1
+    systemctl restart mediamtx.service
+fi
+systemctl enable rpi-capture-control.service >/dev/null 2>&1
+systemctl restart rpi-capture-control.service
 sleep 2
 
 address=$(hostname -I | awk '{print $1}')
 echo ""
 echo "RPi Capture is installed."
 echo "  Stream:          rtsp://$address:8554/board"
-echo "  Service:         $(systemctl is-active mediamtx.service)"
+if [ "$paused" = yes ]; then
+    echo "  Service:         paused"
+else
+    echo "  Service:         $(systemctl is-active mediamtx.service)"
+fi
 echo "  Its log:         journalctl -u mediamtx -f"
+echo "  Pause / Resume:  http://$address:$CONTROL_PORT/status ($(systemctl is-active rpi-capture-control.service)), for $PC_ADDRESSES"
+echo "  Its log:         journalctl -u rpi-capture-control -f"
 if [ "$reboot_needed" = yes ]; then
     echo ""
     echo "Restart the Pi to finish (camera, Wi-Fi power saving, watchdog):  sudo reboot"

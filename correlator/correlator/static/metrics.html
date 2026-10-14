@@ -26,8 +26,25 @@
   <div class="notice" id="notice" hidden></div>
 
   <main class="metrics">
-    <p class="hint" id="period-note"></p>
-    <div id="sections"></div>
+    <nav class="metric-nav" aria-label="Groups of charts">
+      <div class="metric-tabs" id="tabs" role="tablist"></div>
+      <p class="tab-caption" id="tab-caption"></p>
+      <div class="metric-search" id="search-box">
+        <span class="search-icon" id="search-icon" aria-hidden="true"></span>
+        <input id="search" type="search" placeholder="Search charts or Words…" autocomplete="off" spellcheck="false"
+          role="combobox" aria-expanded="false" aria-controls="suggestions" aria-autocomplete="list" disabled>
+        <kbd class="search-key" title="Press / to search">/</kbd>
+        <ul class="suggestions" id="suggestions" role="listbox" hidden></ul>
+      </div>
+    </nav>
+
+    <p class="hint" id="view-note" hidden></p>
+    <div class="view-head" id="view-head" hidden>
+      <h2 id="view-title"></h2>
+      <button class="quiet" id="view-clear" title="Back to the tabs">✕ Clear</button>
+    </div>
+
+    <div id="sections" role="tabpanel"></div>
   </main>
 
   <script src="static/common.js"></script>

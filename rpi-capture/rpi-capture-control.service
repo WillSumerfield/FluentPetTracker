@@ -1,0 +1,19 @@
+[Unit]
+Description=RPi Capture Pause and Resume
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=rpi-capture-control
+Group=rpi-capture-control
+# Holds the Pause, so it outlasts a reboot: /var/lib/rpi-capture
+StateDirectory=rpi-capture
+EnvironmentFile=-/etc/default/rpi-capture-control
+ExecStart=/usr/bin/python3 /usr/local/bin/rpi-capture-control
+Restart=on-failure
+RestartSec=5
+PrivateTmp=yes
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -9,8 +9,11 @@ MediaMTX runs on the Pi as a systemd service and serves one stream, `board`, wit
 - **capture.sh**: the capture pipeline; the camera's H.264 and the mic's sound, published to the Pi's own MediaMTX. With no camera fitted it sends a test picture with the mic instead. Its settings (focus, mic, picture size) are at the top.
 - **mediamtx.yml**: MediaMTX's configuration. Anyone on the network may watch; only the Pi itself may publish.
 - **mediamtx.service**: the systemd service that keeps MediaMTX running.
-- **install.sh**: sets up the Pi from these files; run on the Pi, and again after any change.
+- **control.py**, **rpi-capture-control.service**: Pause and Resume. A small service that switches MediaMTX off and back on when the PC asks, and answers no one else. A Pause outlasts a reboot.
+- **install.sh**: sets up the Pi from these files; run on the Pi, and again after any change. It leaves a Paused stream off, and holds the PC's address, the only one allowed to Pause or Resume.
 
 ## Language
 
-No terms specific to this context yet.
+**Pause**:
+A stretch of time during which capture is deliberately switched off at the Pi, so nothing is seen, heard or recorded. It ends the current Observation Window; Resume ends the Pause. Unlike an outage, it is chosen.
+_Avoid_: Stop, privacy mode, off
