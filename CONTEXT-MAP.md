@@ -29,6 +29,8 @@
  2 │   ├── docker-compose.yml
  2 │   ├── mosquitto
  3 │   │   └── mosquitto.conf
+ 2 │   ├── relay
+ 3 │   │   └── mediamtx.yml            ← passes the Pi's stream on
  2 │   ├── standin
  3 │   │   ├── cat.mp4
  3 │   │   └── mediamtx.yml
@@ -86,7 +88,7 @@
 - [Correlator](./correlator/CONTEXT.md) — runs on the local PC; custom app that joins Frigate's presence/zone events with Word Detection's events (by timestamp) into a Press record, resolves Presser attribution, groups Presses into Exchanges and their Utterances, cuts one Clip per Exchange, and owns the database that is the source of truth for the longitudinal study.
 - [Home Assistant Dashboard](./home-assistant/CONTEXT.md) — runs on the local PC; shows the Correlator's pages (live view, Review Queue, history) and polls its figures. It never opens the database; its only write is a Review Decision, sent through the Correlator.
 
-Frigate Classification, Word Detection, the Correlator and the Home Assistant Dashboard are built against a stand-in stream; RPi Capture is installed on the Pi and tested without its camera; the real stream waits on the Arducam (see `temp/phased-plan.md`).
+Frigate Classification, Word Detection, the Correlator and the Home Assistant Dashboard run on the Pi's stream, which has the real mic but a test picture until the Arducam is fitted (see `temp/phased-plan.md`).
 
 ## Relationships
 

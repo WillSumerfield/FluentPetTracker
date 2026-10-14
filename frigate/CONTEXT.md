@@ -4,12 +4,13 @@ Runs on the local PC. Consumes the RTSP stream via FFmpeg and classifies human v
 
 ## Architecture
 
-A Docker Compose stack: Frigate, the MQTT broker it publishes to, and a temporary stand-in for the Pi's stream. The stack also starts the Word Detection and Correlator containers, which are built from `word-detection/` and `correlator/`.
+A Docker Compose stack: Frigate, the MQTT broker it publishes to, and a relay that serves the Pi's stream to everything in the stack. The stack also starts the Word Detection and Correlator containers, which are built from `word-detection/` and `correlator/`.
 
 - **docker-compose.yml**: defines the stack's containers.
 - **config/**: Frigate's configuration, including the Board Zone; Frigate also writes its runtime database here.
 - **mosquitto/**: configuration for the MQTT broker.
-- **standin/**: a looped video served as if it were the Pi's stream, to be removed once RPi Capture is live.
+- **relay/**: passes the Pi's stream on, so the Pi sends one copy however many readers there are.
+- **standin/**: a looped video served as if it were the Pi's stream; kept so the stack can run without the Pi.
 - **storage/**: Frigate's short-lived recordings (not committed).
 
 ## Language
