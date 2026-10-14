@@ -1,0 +1,15 @@
+[Unit]
+Description=RPi Capture stream (MediaMTX)
+Wants=network-online.target
+After=network-online.target sound.target
+
+[Service]
+User=mediamtx
+Group=mediamtx
+SupplementaryGroups=video audio render
+ExecStart=/usr/local/bin/mediamtx /usr/local/etc/mediamtx.yml
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

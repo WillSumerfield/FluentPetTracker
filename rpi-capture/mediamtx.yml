@@ -1,0 +1,33 @@
+# RPi Capture: serves the camera and mic as one RTSP stream at rtsp://<pi>:8554/board.
+# install.sh puts this at /usr/local/etc/mediamtx.yml. Settings left out keep MediaMTX's defaults.
+
+logLevel: info
+
+# Only RTSP is used. The other servers are off to save memory on the Zero 2 W.
+rtmp: false
+hls: false
+webrtc: false
+srt: false
+moq: false
+
+# Anyone on the network may watch the stream; only the capture pipeline on the Pi itself
+# may publish to it, so nothing else on the network can replace the picture.
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: read
+  - user: any
+    pass:
+    ips: ['127.0.0.1', '::1']
+    permissions:
+      - action: publish
+      - action: api
+      - action: metrics
+      - action: pprof
+
+paths:
+  board:
+    runOnInit: /usr/local/bin/rpi-capture-stream
+    runOnInitRestart: yes
