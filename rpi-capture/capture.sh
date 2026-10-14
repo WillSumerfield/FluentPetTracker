@@ -15,17 +15,34 @@ WIDTH=1280
 HEIGHT=720
 FPS=30
 
-# With no camera fitted, wait before giving up, so the log is not filled with a failure
+# What to do with no camera fitted: "test-pattern" sends a test picture with the real mic,
+# so the PC can run on the mic before the camera arrives; "wait" sends nothing. The camera
+# is used whenever one is found, whatever this says.
+NO_CAMERA=test-pattern
+
+# Without the mic, wait before giving up, so the log is not filled with a failure
 # every few seconds while MediaMTX keeps starting this again.
-if ! rpicam-hello --list-cameras 2>/dev/null | grep -q '^[0-9]'; then
-    echo "rpi-capture: no camera found; trying again in 60 s." >&2
-    sleep 60
-    exit 1
-fi
 if ! arecord -L 2>/dev/null | grep -q 'CARD=Mic'; then
     echo "rpi-capture: the mic ($MIC) is not plugged in; trying again in 60 s." >&2
     sleep 60
     exit 1
+fi
+
+if ! rpicam-hello --list-cameras 2>/dev/null | grep -q '^[0-9]'; then
+    if [ "$NO_CAMERA" != test-pattern ]; then
+        echo "rpi-capture: no camera found; trying again in 60 s." >&2
+        sleep 60
+        exit 1
+    fi
+    # The test picture is made and encoded in software, so it is kept small and slow
+    # (about half of one core); the camera's own encoder does the real picture.
+    echo "rpi-capture: no camera found; streaming a 640x360 test pattern at 10 fps with the mic" >&2
+    exec ffmpeg -nostdin -hide_banner -loglevel error \
+        -re -f lavfi -i testsrc2=size=640x360:rate=10 \
+        -thread_queue_size 1024 -f alsa -sample_rate 44100 -channels 1 -i "$MIC" \
+        -map 0:v -map 1:a -c:v libx264 -preset ultrafast -tune zerolatency -g 10 -pix_fmt yuv420p \
+        -c:a aac -b:a 128k \
+        -f rtsp -rtsp_transport tcp rtsp://localhost:8554/board
 fi
 
 echo "rpi-capture: streaming ${WIDTH}x${HEIGHT} at ${FPS} fps with sound to rtsp://localhost:8554/board" >&2
