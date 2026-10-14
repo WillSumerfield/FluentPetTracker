@@ -1,0 +1,11 @@
+# Template for frigate/relay/mediamtx.yml, which configure.py writes from the root config.yml.
+
+# Relays the Pi's stream (RPi Capture) at rtsp://mediamtx:8554/board, the same address the
+# stand-in uses, so Frigate and Word Detection read it unchanged. The Pi sends one copy of
+# the stream over Wi-Fi, however many readers there are here.
+# The Pi's address (pi.address) should be fixed by a DHCP reservation on the router.
+
+paths:
+  board:
+    source: rtsp://${pi_address}:8554/board
+    rtspTransport: tcp

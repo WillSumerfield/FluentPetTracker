@@ -1,0 +1,110 @@
+# FluentPetTracker settings.
+#
+# Copy this file to config.yml (./fluentpet.sh configure does it for you the first time),
+# change what is yours, then run:  ./fluentpet.sh up
+#
+# config.yml is not committed. Everything else that needs these values (Docker Compose, the
+# Pi, Frigate, Home Assistant) is written from it by configure.py; do not edit those copies.
+# Any setting left out keeps the value shown here.
+
+# ---- The Pet -------------------------------------------------------------------------
+pet:
+  # What the pages and phone alerts call the Pet.
+  name: Biscuit
+  # The Frigate labels that count as the Pet. "person" is always the human.
+  # Frigate's small-animal labels are easily confused: a small cat is often seen as a dog,
+  # so listing both catches it. The first label picks the icon (cat, dog, or a paw).
+  labels: [cat, dog]
+
+# ---- The Raspberry Pi (RPi Capture) ---------------------------------------------------
+# These are written to rpi-capture/capture.env. After changing them, copy rpi-capture/ to
+# the Pi again and run:  sudo sh rpi-capture/install.sh
+pi:
+  # The Pi's address on the home network. Fix it with a DHCP reservation on the router.
+  address: 192.168.0.104
+  video:
+    # 1080p at 30 fps is the most the Pi Zero 2 W's encoder can do.
+    width: 1920
+    height: 1080
+    fps: 30
+    # Bits per second. 12 Mbit/s keeps fast motion sharp and fits 2.4 GHz Wi-Fi.
+    bitrate: 12000000
+  # How far away the board is, as the lens sees it: 1 / distance in metres
+  # (0 is infinity, 2.0 is 50 cm).
+  lens_position: 1.0
+  # The microphone, as ALSA names it on the Pi (see `arecord -L`).
+  mic: plughw:CARD=Mic,DEV=0
+  # With no camera fitted: "test-pattern" sends a test picture with the real mic,
+  # "wait" sends nothing until a camera is found.
+  no_camera: test-pattern
+  # Pause and Resume: the port the Pi listens on, and the PCs allowed to use it.
+  # Give this PC a DHCP reservation too.
+  control_port: 8800
+  allowed_pcs: [192.168.0.164]
+
+# ---- Frigate --------------------------------------------------------------------------
+frigate:
+  # The size Frigate looks for the Pet and the human at. Keep the camera's shape (16:9).
+  detect:
+    width: 640
+    height: 360
+    fps: 5
+  # The Board Zone, as x,y pairs from 0 to 1 across the picture. Draw it in Frigate's UI
+  # (Settings → Masks / Zones), then copy the coordinates here.
+  board_zone: "0.25,0.25,1,0.25,1,1,0.25,1"
+  # How long Frigate keeps its own footage, which Clips are cut from.
+  keep_footage_hours: 1
+
+# ---- Storage --------------------------------------------------------------------------
+storage:
+  # Where Clips are kept on this PC. The folder must hold a file named .fluentpet-clips;
+  # without it (as when a drive is not connected) Clips are not saved, but Presses are.
+  clips_dir: /mnt/d/FluentPetTracker/clips
+  # The study's database. A relative path starts at this folder.
+  data_dir: correlator/data
+
+# ---- The study's rules ----------------------------------------------------------------
+# These can be changed at any time. The Reply window and the Counted Day threshold are
+# applied when figures are shown, so a change applies to the whole study, past included.
+# The others take effect for Presses recorded after the change.
+study:
+  # A quiet gap this long closes an Exchange (and its Clip).
+  exchange_gap_seconds: 20
+  # No Exchange runs longer than this.
+  exchange_max_seconds: 300
+  # An Utterance is a Reply when it starts within this long of the other Presser's.
+  reply_window_seconds: 300
+  # A day counts towards "per day" figures once it is observed for more than this.
+  counted_day_hours: 4
+  # How far either side of a Press someone in the Board Zone still counts as there.
+  presence_tolerance_seconds: 1.5
+  # How long to wait for Frigate's view of a Press before deciding who pressed it.
+  decision_delay_seconds: 3
+  # How much video each Clip keeps from before the first Press.
+  clip_pre_roll_seconds: 5
+
+# ---- Word Detection -------------------------------------------------------------------
+word_detection:
+  # Match scores from 0 to 1. At or above "confident" a Word is reported; between the two
+  # it is reported as an Uncertain Match; below "uncertain" it is ignored.
+  confident_threshold: 0.75
+  uncertain_threshold: 0.55
+  # The longest an Enrolment Recording may run.
+  enrolment_limit_seconds: 600
+
+# ---- Network --------------------------------------------------------------------------
+network:
+  # Where the Correlator's pages are reached from the phone: this PC's Tailscale Serve
+  # address and port (see the README). Used for Home Assistant's sidebar pages.
+  # Leave empty to keep the addresses in home-assistant/config/secrets.yaml by hand.
+  public_address: ""
+  # Ports on this PC. Each is bound to 127.0.0.1 only. Change one if it is already taken.
+  ports:
+    home_assistant: 8123
+    pages: 8600
+    frigate: 5000
+    frigate_login: 8971
+    rtsp: 8554
+    mqtt: 1883
+  # Where a browser reaches Frigate's live stream. Empty: the Live Feed works it out.
+  live_stream_url: ""

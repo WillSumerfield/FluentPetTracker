@@ -1,0 +1,58 @@
+# Template for frigate/config/config.yml, which configure.py writes from the root config.yml.
+# Edit this file for changes that are not settings, then run ./fluentpet.sh configure.
+# Each ${name} is filled in from the root config.yml.
+
+mqtt:
+  host: mosquitto
+  port: 1883
+
+detectors:
+  cpu1:
+    type: cpu
+
+# Frigate holds footage for frigate.keep_footage_hours and nothing longer.
+# Clips kept for the study are cut from this by the Correlator.
+record:
+  enabled: true
+  continuous:
+    days: ${retain_days}
+  alerts:
+    retain:
+      days: ${retain_days}
+  detections:
+    retain:
+      days: ${retain_days}
+
+# Live Feed: Frigate relays the stream, with sound, to the dashboard's Live Feed page.
+# The second line adds AAC sound when the camera's own sound cannot be played by a browser.
+go2rtc:
+  streams:
+    board:
+      - rtsp://mediamtx:8554/board
+      - "ffmpeg:board#audio=aac"
+
+cameras:
+  board:
+    ffmpeg:
+      inputs:
+        - path: rtsp://mediamtx:8554/board
+          roles:
+            - detect
+            - record
+      output_args:
+        record: preset-record-generic-audio-copy
+    detect:
+      enabled: true
+      width: ${detect_width}
+      height: ${detect_height}
+      fps: ${detect_fps}
+    objects:
+      # A person is the human; every other label counts as the Pet (pet.labels).
+      track: ${tracked_labels}
+    zones:
+      # Drawn against the camera's picture. A redraw in Frigate's UI must be copied back into
+      # frigate.board_zone in the root config.yml; configure.py says so if it finds one.
+      board_zone:
+        coordinates: ${board_zone}
+        objects: ${tracked_labels}
+version: 0.18-0
