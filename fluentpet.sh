@@ -4,6 +4,7 @@
 #   ./fluentpet.sh up              write the settings from config.yml, then start everything
 #   ./fluentpet.sh configure       only write the settings (add --check to write nothing)
 #   ./fluentpet.sh thumbnails      give Clips cut before thumbnails existed one each
+#   ./fluentpet.sh clear           clear everything the study has recorded, for a fresh start
 #   ./fluentpet.sh <anything else> passed to docker compose, e.g.  ./fluentpet.sh logs -f correlator
 set -eu
 
@@ -29,7 +30,7 @@ compose() {
 command=${1:-}
 case "$command" in
     "" | -h | --help | help)
-        sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
         ;;
     configure)
         shift
@@ -37,6 +38,13 @@ case "$command" in
         ;;
     thumbnails)
         python3 "$root/correlator/backfill_thumbnails.py"
+        ;;
+    clear)
+        shift
+        # Settings are written first, so the folders cleared are the ones Docker mounts.
+        configure
+        echo ""
+        python3 "$root/correlator/clear_data.py" "$@"
         ;;
     up)
         shift
