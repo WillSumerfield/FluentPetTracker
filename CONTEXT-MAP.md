@@ -6,6 +6,9 @@
  0 .
  1 ├── CONTEXT-MAP.md
  1 ├── README.md
+ 1 ├── config.example.yml            ← every setting, described; copied to config.yml (not committed)
+ 1 ├── configure.py                  ← writes every service's settings from config.yml
+ 1 ├── fluentpet.sh                  ← configure, then start everything
  1 ├── correlator
  2 │   ├── CONTEXT.md
  2 │   ├── Dockerfile
@@ -25,24 +28,26 @@
  1 ├── frigate
  2 │   ├── CONTEXT.md
  2 │   ├── config
- 3 │   │   └── config.yml
- 2 │   ├── docker-compose.yml
+ 3 │   │   └── config.yml              ← written from config.template.yml (not committed)
+ 2 │   ├── config.template.yml
+ 2 │   ├── docker-compose.yml          ← reads .env, correlator.env, word-detection.env (written)
  2 │   ├── mosquitto
  3 │   │   └── mosquitto.conf
  2 │   ├── relay
- 3 │   │   └── mediamtx.yml            ← passes the Pi's stream on
+ 3 │   │   └── mediamtx.template.yml   ← passes the Pi's stream on (written to mediamtx.yml)
  2 │   ├── standin
  3 │   │   ├── cat.mp4
  3 │   │   └── mediamtx.yml
  2 │   └── storage
  1 ├── home-assistant
  2 │   ├── CONTEXT.md
- 2 │   └── config
- 3 │       ├── configuration.yaml      ← sidebar entries and sensors
- 3 │       └── dashboards
+ 2 │   ├── config
+ 3 │   │   ├── configuration.yaml      ← written from the template (not committed)
+ 3 │   │   └── dashboards
+ 2 │   └── configuration.template.yaml ← sidebar entries, sensors and Utterance Alerts
  1 ├── rpi-capture
  2 │   ├── CONTEXT.md
- 2 │   ├── capture.sh                  ← camera + mic into one stream
+ 2 │   ├── capture.sh                  ← camera + mic into one stream; settings from capture.env (written)
  2 │   ├── control.py                  ← Pause and Resume, asked by the PC
  2 │   ├── install.sh                  ← sets up the Pi
  2 │   ├── mediamtx.service
@@ -85,7 +90,7 @@
 ## Contexts
 
 - [RPi Capture](./rpi-capture/CONTEXT.md) — runs on the wall-mounted Raspberry Pi Zero 2 W; camera + mic capture, streamed out via MediaMTX, and switched off at the Pi during a Pause.
-- [Frigate Classification](./frigate/CONTEXT.md) — runs on the local PC; consumes the RTSP video stream, classifies human vs. cat presence in the Board Zone, and owns the short-lived continuous recording that Clips are cut from (built-in Frigate behavior, not custom).
+- [Frigate Classification](./frigate/CONTEXT.md) — runs on the local PC; consumes the RTSP video stream, classifies human vs. Pet presence in the Board Zone, and owns the short-lived continuous recording that Clips are cut from (built-in Frigate behavior, not custom).
 - [Word Detection](./word-detection/CONTEXT.md) — runs on the local PC; custom audio pipeline that consumes the mic feed and identifies which Word was spoken by matching it against Reference Clips.
 - [Correlator](./correlator/CONTEXT.md) — runs on the local PC; custom app that joins Frigate's presence/zone events with Word Detection's events (by timestamp) into a Press record, resolves Presser attribution, groups Presses into Exchanges and their Utterances, cuts one Clip per Exchange, and owns the database that is the source of truth for the longitudinal study.
 - [Home Assistant Dashboard](./home-assistant/CONTEXT.md) — runs on the local PC; shows the Correlator's pages (live view, Review Queue, history) and polls its figures. It never opens the database; its only write is a Review Decision, sent through the Correlator.
@@ -99,7 +104,7 @@ Frigate Classification, Word Detection, the Correlator and the Home Assistant Da
 - **Frigate Classification → Correlator**: Board Zone presence events over the MQTT broker, plus the recorded footage Clips are cut from (through Frigate's export feature)
 - **Word Detection → Correlator**: Word-identification events, including Uncertain Matches, over the MQTT broker in the Frigate stack
 - **Correlator → Home Assistant Dashboard**: pages, figures and Clips over the Correlator's web service
-- **Correlator → Home Assistant Dashboard**: each closed Exchange, with the Utterances attributed to the cat and those awaiting review, over the MQTT broker; Home Assistant turns these into Utterance Alerts
+- **Correlator → Home Assistant Dashboard**: each closed Exchange, with the Utterances attributed to the Pet and those awaiting review, over the MQTT broker; Home Assistant turns these into Utterance Alerts
 - **Home Assistant Dashboard → Correlator**: Review Decisions, over the same web service
 - **Home Assistant Dashboard → RPi Capture**: Pause and Resume, from the Live Feed page, passed on by the Correlator's web service to the Pi's control service
 - **Home Assistant Dashboard → Word Detection**: Enrolment (recording, Spans, and the Reference Clips kept), passed on unchanged by the Correlator's web service. Only Word Detection reads or writes Reference Clips.

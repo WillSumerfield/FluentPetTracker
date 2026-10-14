@@ -9,7 +9,7 @@ A Home Assistant container in the Frigate stack. Its sidebar lists the Correlato
 - **Daily Summary**: one day's Clips on a timeline, the player, and where each Press is given its Review Decision.
 - **Review**: the Review Queue, one Press at a time.
 - **Live Feed**: the camera's picture and sound, as it happens, and where capture is Paused and Resumed.
-- **Metrics**: the study's figures per day, week, month or whole study, the cat and the human always in separate charts.
+- **Metrics**: the study's figures per day, week, month or whole study, the Pet and the human always in separate charts.
 - **Enrolment**: recording the board through the mic feed and turning it into Reference Clips. The work is Word Detection's.
 
 - **config/configuration.yaml**: the features switched on, the sidebar entries and the sensors.
@@ -23,5 +23,5 @@ The Ambiguous Presses that have no Review Decision yet, oldest first, each shown
 _Avoid_: Inbox, backlog, pending list
 
 **Utterance Alert**:
-The message sent to a person's phone when an Exchange closes holding at least one Utterance the pipeline attributed to the cat, or at least one still awaiting review. It lists those Utterances in order, the ones awaiting review marked as such, and leads to the Exchange's Clip. A Review Decision never causes one.
+The message sent to a person's phone when an Exchange closes holding at least one Utterance the pipeline attributed to the Pet, or at least one still awaiting review. It lists those Utterances in order, the ones awaiting review marked as such, and leads to the Exchange's Clip. A Review Decision never causes one.
 _Avoid_: Press notification, push, ping

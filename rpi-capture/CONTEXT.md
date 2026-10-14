@@ -6,7 +6,7 @@ Runs on the wall-mounted Raspberry Pi Zero 2 W. Captures camera and mic input an
 
 MediaMTX runs on the Pi as a systemd service and serves one stream, `board`, with the camera's picture and the mic's sound together. It starts the capture pipeline itself and starts it again whenever it stops.
 
-- **capture.sh**: the capture pipeline; the camera's H.264 and the mic's sound, published to the Pi's own MediaMTX. With no camera fitted it sends a test picture with the mic instead. Its settings (focus, mic, picture size) are at the top.
+- **capture.sh**: the capture pipeline; the camera's H.264 and the mic's sound, published to the Pi's own MediaMTX. With no camera fitted it sends a test picture with the mic instead. Its settings (focus, mic, picture size) come from the `pi:` section of the root `config.yml`, through `capture.env`; the values at its top are only fallbacks.
 - **mediamtx.yml**: MediaMTX's configuration. Anyone on the network may watch; only the Pi itself may publish.
 - **mediamtx.service**: the systemd service that keeps MediaMTX running.
 - **control.py**, **rpi-capture-control.service**: Pause and Resume. A small service that switches MediaMTX off and back on when the PC asks, and answers no one else. A Pause outlasts a reboot.
