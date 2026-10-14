@@ -61,6 +61,7 @@ TEMPLATES = {
 # The Correlator's pages, as Home Assistant's sidebar opens them: secrets.yaml key -> path.
 PAGE_SECRETS = {
     "fluentpet_daily_url": "/",
+    "fluentpet_clips_url": "/clips",
     "fluentpet_review_url": "/review",
     "fluentpet_live_url": "/live",
     "fluentpet_metrics_url": "/metrics",
