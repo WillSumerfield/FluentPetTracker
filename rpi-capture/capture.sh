@@ -4,28 +4,42 @@
 # so it is not meant to be run by hand while the service is running.
 set -eu
 
-# How far away the board is, as the lens sees it: 1 / distance in metres (0 is infinity,
-# 2.0 is 50 cm). PLACEHOLDER until the Arducam is mounted; see temp/rpi-setup-plan.md.
-LENS_POSITION=1.0
+# Settings come from the root config.yml (the pi: section), which configure.py writes to
+# rpi-capture/capture.env and install.sh installs here. Each one below is only the fallback
+# for a setting that file leaves out.
+SETTINGS=/usr/local/etc/rpi-capture.env
+if [ -r "$SETTINGS" ]; then
+    # shellcheck source=/dev/null
+    . "$SETTINGS"
+else
+    echo "rpi-capture: $SETTINGS was not found; using the built-in settings." >&2
+fi
 
-# The Samson Go Mic, named rather than numbered so it is found even if the card number changes.
-MIC=plughw:CARD=Mic,DEV=0
+# How far away the board is, as the lens sees it: 1 / distance in metres (0 is infinity,
+# 2.0 is 50 cm).
+LENS_POSITION=${LENS_POSITION:-1.0}
+
+# The mic, named rather than numbered so it is found even if the card number changes.
+MIC=${MIC:-plughw:CARD=Mic,DEV=0}
 
 # 1080p at 30 fps is the most the Pi's H.264 encoder can do. 12 Mbit/s keeps fast motion sharp
 # and still fits the Pi's 2.4 GHz Wi-Fi.
-WIDTH=1920
-HEIGHT=1080
-FPS=30
-BITRATE=12000000
+WIDTH=${WIDTH:-1920}
+HEIGHT=${HEIGHT:-1080}
+FPS=${FPS:-30}
+BITRATE=${BITRATE:-12000000}
 
 # What to do with no camera fitted: "test-pattern" sends a test picture with the real mic,
 # so the PC can run on the mic before the camera arrives; "wait" sends nothing. The camera
 # is used whenever one is found, whatever this says.
-NO_CAMERA=test-pattern
+NO_CAMERA=${NO_CAMERA:-test-pattern}
 
 # Without the mic, wait before giving up, so the log is not filled with a failure
 # every few seconds while MediaMTX keeps starting this again.
-if ! arecord -L 2>/dev/null | grep -q 'CARD=Mic'; then
+# Only a mic named by its card (CARD=...) can be looked for; one given by number is just tried.
+mic_card=""
+case "$MIC" in *CARD=*) mic_card=${MIC#*CARD=}; mic_card=${mic_card%%,*} ;; esac
+if [ -n "$mic_card" ] && ! arecord -L 2>/dev/null | grep -qF "CARD=$mic_card,"; then
     echo "rpi-capture: the mic ($MIC) is not plugged in; trying again in 60 s." >&2
     sleep 60
     exit 1

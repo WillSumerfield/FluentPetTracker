@@ -8,11 +8,8 @@ set -e
 MEDIAMTX_VERSION=v1.21.1
 MEDIAMTX_SHA256=6a3aa635fb60ea9b8d566ec306f0a42ff1b6b52a3942bc2baffbe55880d4c3dd
 CONFIG_TXT=/boot/firmware/config.txt
-# Only these may Pause or Resume the stream: the PC's address on the LAN, which needs a DHCP
-# reservation of its own. Several may be given, separated by spaces.
-PC_ADDRESSES="192.168.0.164"
-CONTROL_PORT=8800
 PAUSED_FILE=/var/lib/rpi-capture/paused
+SETTINGS=/usr/local/etc/rpi-capture.env
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "This must be run as root:  sudo sh $0" >&2
@@ -32,6 +29,21 @@ if [ ! -f "$CONFIG_TXT" ]; then
 fi
 
 here=$(cd "$(dirname "$0")" && pwd)
+
+# Settings come from the root config.yml (the pi: section): ./fluentpet.sh configure on the PC
+# writes them to capture.env beside this script, which is copied here with it.
+if [ -f "$here/capture.env" ]; then
+    # shellcheck source=/dev/null
+    . "$here/capture.env"
+    echo "Using the settings in $here/capture.env."
+else
+    echo "No capture.env beside this script, so the built-in settings are used." >&2
+    echo "On the PC, run ./fluentpet.sh configure and copy rpi-capture/ here again to set your own." >&2
+fi
+# Only these may Pause or Resume the stream: the PC's address on the LAN (pi.allowed_pcs),
+# which needs a DHCP reservation of its own. Several may be given, separated by spaces.
+PC_ADDRESSES=${PC_ADDRESSES:-192.168.0.164}
+CONTROL_PORT=${CONTROL_PORT:-8800}
 reboot_needed=no
 
 echo "Installing the camera and sound tools (this can take a while on the Zero 2 W)..."
@@ -63,6 +75,9 @@ fi
 install -m 755 "$here/capture.sh" /usr/local/bin/rpi-capture-stream
 install -d /usr/local/etc
 install -m 644 "$here/mediamtx.yml" /usr/local/etc/mediamtx.yml
+if [ -f "$here/capture.env" ]; then
+    install -m 644 "$here/capture.env" "$SETTINGS"
+fi
 install -m 644 "$here/mediamtx.service" /etc/systemd/system/mediamtx.service
 
 # Pause and Resume run as their own user, allowed by sudo to switch MediaMTX off and on, and nothing else.
@@ -71,7 +86,7 @@ if ! id rpi-capture-control >/dev/null 2>&1; then
 fi
 install -m 755 "$here/control.py" /usr/local/bin/rpi-capture-control
 install -m 644 "$here/rpi-capture-control.service" /etc/systemd/system/rpi-capture-control.service
-printf '# Written by rpi-capture/install.sh; change it there.\nCONTROL_PORT=%s\nCONTROL_ALLOW="127.0.0.1 %s"\n' \
+printf '# Written by rpi-capture/install.sh from config.yml (pi:); change it there.\nCONTROL_PORT=%s\nCONTROL_ALLOW="127.0.0.1 %s"\n' \
     "$CONTROL_PORT" "$PC_ADDRESSES" > /etc/default/rpi-capture-control
 # The same path control.py runs, since sudo matches the command exactly.
 systemctl_path=/usr/bin/systemctl
