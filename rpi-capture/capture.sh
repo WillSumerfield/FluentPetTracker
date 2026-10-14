@@ -11,9 +11,12 @@ LENS_POSITION=1.0
 # The Samson Go Mic, named rather than numbered so it is found even if the card number changes.
 MIC=plughw:CARD=Mic,DEV=0
 
-WIDTH=1280
-HEIGHT=720
+# 1080p at 30 fps is the most the Pi's H.264 encoder can do. 12 Mbit/s keeps fast motion sharp
+# and still fits the Pi's 2.4 GHz Wi-Fi.
+WIDTH=1920
+HEIGHT=1080
 FPS=30
+BITRATE=12000000
 
 # What to do with no camera fitted: "test-pattern" sends a test picture with the real mic,
 # so the PC can run on the mic before the camera arrives; "wait" sends nothing. The camera
@@ -52,7 +55,7 @@ echo "rpi-capture: streaming ${WIDTH}x${HEIGHT} at ${FPS} fps with sound to rtsp
 # the same clock it stamps the sound with, which keeps picture and sound together.
 rpicam-vid --nopreview --verbose 0 -t 0 \
     --width "$WIDTH" --height "$HEIGHT" --framerate "$FPS" \
-    --codec h264 --inline --intra "$FPS" \
+    --codec h264 --level 4.1 --bitrate "$BITRATE" --inline --intra "$FPS" \
     --autofocus-mode manual --lens-position "$LENS_POSITION" \
     -o - \
 | ffmpeg -nostdin -hide_banner -loglevel error -xerror \
