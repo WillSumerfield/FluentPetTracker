@@ -96,6 +96,14 @@ You can come back and redo a single word at any time. The others keep theirs.
 - **Live Feed** shows the camera. Its **Pause** button switches the camera and mic off at the Pi until you press **Resume**. Paused time doesn't count against the study.
 - Your phone gets an alert when your pet says something, or when a new clip is waiting for review.
 
+Before the real study begins, clear out whatever was recorded while you were setting up:
+
+```sh
+./fluentpet.sh clear
+```
+
+It shows what it's about to remove and asks you to type `clear` first. Every press, conversation and clip goes, and so do the figures worked out from them. The database is kept in a `cleared-<date-time>` folder beside it, in case you need it back. The clips are deleted. Your settings and the button recordings from Enrolment are left alone.
+
 The study's rules (how long a gap ends a conversation, how quickly a reply has to come, and so on) are in `config.yml` too, and you can change them at any time.
 
 ## How it works

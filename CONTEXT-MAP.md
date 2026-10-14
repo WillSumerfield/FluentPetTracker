@@ -13,6 +13,7 @@
  2 │   ├── CONTEXT.md
  2 │   ├── Dockerfile
  2 │   ├── backfill_thumbnails.py      ← thumbnails for Clips cut before they existed (run on the PC)
+ 2 │   ├── clear_data.py               ← clears everything the study has recorded (run on the PC)
  2 │   ├── correlator
  3 │   │   ├── clips.py                ← cuts Clips through Frigate's export, and a thumbnail of each
  3 │   │   ├── config.py               ← settings from environment variables
