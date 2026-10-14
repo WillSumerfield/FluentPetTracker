@@ -39,7 +39,11 @@
  3 │       ├── configuration.yaml      ← sidebar entries and sensors
  3 │       └── dashboards
  1 ├── rpi-capture
- 2 │   └── CONTEXT.md
+ 2 │   ├── CONTEXT.md
+ 2 │   ├── capture.sh                  ← camera + mic into one stream
+ 2 │   ├── install.sh                  ← sets up the Pi
+ 2 │   ├── mediamtx.service
+ 2 │   └── mediamtx.yml
  1 ├── word-detection
  2 │   ├── CONTEXT.md
  2 │   ├── Dockerfile
@@ -82,7 +86,7 @@
 - [Correlator](./correlator/CONTEXT.md) — runs on the local PC; custom app that joins Frigate's presence/zone events with Word Detection's events (by timestamp) into a Press record, resolves Presser attribution, groups Presses into Exchanges and their Utterances, cuts one Clip per Exchange, and owns the database that is the source of truth for the longitudinal study.
 - [Home Assistant Dashboard](./home-assistant/CONTEXT.md) — runs on the local PC; shows the Correlator's pages (live view, Review Queue, history) and polls its figures. It never opens the database; its only write is a Review Decision, sent through the Correlator.
 
-Frigate Classification, Word Detection, the Correlator and the Home Assistant Dashboard are built against a stand-in stream; RPi Capture is empty scaffolding (see `temp/phased-plan.md`).
+Frigate Classification, Word Detection, the Correlator and the Home Assistant Dashboard are built against a stand-in stream; RPi Capture is installed on the Pi and tested without its camera; the real stream waits on the Arducam (see `temp/phased-plan.md`).
 
 ## Relationships
 
