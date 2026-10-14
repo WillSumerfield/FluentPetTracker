@@ -49,18 +49,6 @@ cameras:
         - person
         - cat
         - dog
-      # TEST SETTING: a confidence nothing reaches, so nobody is ever seen at the board and
-      # every Press is Ambiguous. Remove this block to have Presses attributed again.
-      filters:
-        person:
-          threshold: 0.99
-          min_score: 0.99
-        cat:
-          threshold: 0.99
-          min_score: 0.99
-        dog:
-          threshold: 0.99
-          min_score: 0.99
     zones:
       # Placeholder drawn for the stand-in video. Redraw against the real camera.
       board_zone:
