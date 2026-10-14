@@ -47,3 +47,11 @@ The Enrolment page (`/enrol`, and "Enrolment" in Home Assistant's sidebar) turns
 
 The same page lists the enrolled Words, plays their Reference Clips, and removes them. `python -m word_detection.enrol` still cuts a Reference Clip from a file on the command line.
 
+
+## Pause
+
+**Pause** on the Live Feed page switches the camera and mic off at the Pi, so nothing is seen, heard or recorded until **Resume**. A Pause lasts until it is Resumed, also through a reboot or a power cut, and the time it lasts is left out of the study's Observation Windows.
+
+- The Pi takes the request only from the PC's address, set as `PC_ADDRESSES` at the top of `rpi-capture/install.sh`. Give the PC a DHCP reservation on the router so the address does not change.
+- After changing anything in `rpi-capture/`, run `install.sh` on the Pi again. It leaves a Paused stream off.
+- On the Pi, `journalctl -u rpi-capture-control` shows each Pause and Resume.

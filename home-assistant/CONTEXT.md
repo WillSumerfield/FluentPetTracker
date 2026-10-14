@@ -8,7 +8,7 @@ A Home Assistant container in the Frigate stack. Its sidebar lists the Correlato
 
 - **Daily Summary**: one day's Clips on a timeline, the player, and where each Press is given its Review Decision.
 - **Review**: the Review Queue, one Press at a time.
-- **Live Feed**: the camera's picture and sound, as it happens.
+- **Live Feed**: the camera's picture and sound, as it happens, and where capture is Paused and Resumed.
 - **Metrics**: the study's figures per day, week, month or whole study, the cat and the human always in separate charts.
 - **Enrolment**: recording the board through the mic feed and turning it into Reference Clips. The work is Word Detection's.
 

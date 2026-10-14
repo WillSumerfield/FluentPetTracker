@@ -43,9 +43,11 @@
  1 ├── rpi-capture
  2 │   ├── CONTEXT.md
  2 │   ├── capture.sh                  ← camera + mic into one stream
+ 2 │   ├── control.py                  ← Pause and Resume, asked by the PC
  2 │   ├── install.sh                  ← sets up the Pi
  2 │   ├── mediamtx.service
- 2 │   └── mediamtx.yml
+ 2 │   ├── mediamtx.yml
+ 2 │   └── rpi-capture-control.service
  1 ├── word-detection
  2 │   ├── CONTEXT.md
  2 │   ├── Dockerfile
@@ -82,7 +84,7 @@
 
 ## Contexts
 
-- [RPi Capture](./rpi-capture/CONTEXT.md) — runs on the wall-mounted Raspberry Pi Zero 2 W; camera + mic capture, streamed out via MediaMTX.
+- [RPi Capture](./rpi-capture/CONTEXT.md) — runs on the wall-mounted Raspberry Pi Zero 2 W; camera + mic capture, streamed out via MediaMTX, and switched off at the Pi during a Pause.
 - [Frigate Classification](./frigate/CONTEXT.md) — runs on the local PC; consumes the RTSP video stream, classifies human vs. cat presence in the Board Zone, and owns the short-lived continuous recording that Clips are cut from (built-in Frigate behavior, not custom).
 - [Word Detection](./word-detection/CONTEXT.md) — runs on the local PC; custom audio pipeline that consumes the mic feed and identifies which Word was spoken by matching it against Reference Clips.
 - [Correlator](./correlator/CONTEXT.md) — runs on the local PC; custom app that joins Frigate's presence/zone events with Word Detection's events (by timestamp) into a Press record, resolves Presser attribution, groups Presses into Exchanges and their Utterances, cuts one Clip per Exchange, and owns the database that is the source of truth for the longitudinal study.
@@ -99,5 +101,6 @@ Frigate Classification, Word Detection, the Correlator and the Home Assistant Da
 - **Correlator → Home Assistant Dashboard**: pages, figures and Clips over the Correlator's web service
 - **Correlator → Home Assistant Dashboard**: each closed Exchange, with the Utterances attributed to the cat and those awaiting review, over the MQTT broker; Home Assistant turns these into Utterance Alerts
 - **Home Assistant Dashboard → Correlator**: Review Decisions, over the same web service
+- **Home Assistant Dashboard → RPi Capture**: Pause and Resume, from the Live Feed page, passed on by the Correlator's web service to the Pi's control service
 - **Home Assistant Dashboard → Word Detection**: Enrolment (recording, Spans, and the Reference Clips kept), passed on unchanged by the Correlator's web service. Only Word Detection reads or writes Reference Clips.
 - **(Future) FluentPet Connect board API → Word Detection / Correlator**: deferred integration, not part of current scope
