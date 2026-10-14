@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clips · FluentPet Board</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body data-page="Clips" class="clips-page">
+  <header class="topbar">
+    <h1>Clips</h1>
+    <div class="month-range">
+      <label>From <select id="month-from" aria-label="First month shown"></select></label>
+      <label>to <select id="month-to" aria-label="Last month shown"></select></label>
+    </div>
+    <span class="status" id="status">Connecting…</span>
+  </header>
+
+  <div class="notice" id="notice" hidden></div>
+
+  <main class="clips">
+    <section class="card overview" aria-label="Clips per day">
+      <div class="overview-head">
+        <div class="filters" role="group" aria-label="Show only">
+          <button type="button" class="filter" id="filter-pet" aria-pressed="false"><span data-pet-name>Pet</span> spoke</button>
+          <button type="button" class="filter" id="filter-review" aria-pressed="false">Awaiting review</button>
+          <select id="filter-word" class="filter-word" aria-label="Only Clips with this Word">
+            <option value="">Any Word</option>
+          </select>
+        </div>
+        <p class="overview-total" id="total"></p>
+      </div>
+      <div class="days-strip" id="days-strip"></div>
+      <div class="days-axis" id="days-axis" aria-hidden="true"></div>
+      <div class="tooltip" id="strip-tooltip" hidden></div>
+    </section>
+
+    <div id="days"></div>
+    <p class="empty" id="empty" hidden></p>
+  </main>
+
+  <dialog class="viewer" id="viewer" aria-labelledby="viewer-title" tabindex="-1">
+    <div class="viewer-head">
+      <h2 id="viewer-title">Clip</h2>
+      <span class="hint" id="viewer-position"></span>
+      <button type="button" class="viewer-close" id="viewer-close" aria-label="Close">✕</button>
+    </div>
+    <div class="viewer-stage">
+      <button type="button" class="viewer-step" id="viewer-previous" aria-label="Earlier Clip" title="Earlier Clip (←)">‹</button>
+      <div class="player">
+        <video id="video" playsinline preload="auto" hidden></video>
+        <p class="player-message" id="player-message">Loading…</p>
+      </div>
+      <button type="button" class="viewer-step" id="viewer-next" aria-label="Later Clip" title="Later Clip (→)">›</button>
+    </div>
+    <div class="viewer-strip">
+      <div class="strip-head">
+        <span class="hint" id="viewer-summary"></span>
+        <label class="toggle"><input type="checkbox" id="sound" checked> Sound (M)</label>
+        <button type="button" class="quiet" id="fullscreen" title="Watch full screen (F)">Full screen</button>
+      </div>
+      <div class="clip-timeline" id="clip-timeline"></div>
+      <div class="viewer-foot">
+        <span class="hint keys">Click a Word to jump to it. <kbd>←</kbd> <kbd>→</kbd> for other Clips, <kbd>F</kbd> for full screen, <kbd>Esc</kbd> to close.</span>
+        <a class="open-link" id="open-daily">Correct the Presses in Daily Summary</a>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="settings.js"></script>
+  <script src="static/common.js"></script>
+  <script src="static/clips.js"></script>
+</body>
+</html>

@@ -44,7 +44,10 @@ PAGES = {
     "/live": "live.html",
     "/metrics": "metrics.html",
     "/enrol": "enrol.html",
+    "/clips": "clips.html",
 }
+# The most the Clips page may ask for at once.
+MOST_MONTHS = 12
 
 
 def create_app(config: Config) -> Flask:
@@ -102,6 +105,21 @@ def create_app(config: Config) -> Flask:
             return _problem(400, f"'{request.args['date']}' is not a date such as 2026-10-12.")
         return jsonify(store.metrics(period, anchor))
 
+    @app.get("/api/clips")
+    def clips() -> Response:
+        today = date.today().replace(day=1)
+        try:
+            first = _month(request.args.get("from"), today)
+            last = _month(request.args.get("to"), today)
+        except ValueError as error:
+            return _problem(400, _sentence(error))
+        if last < first:
+            return _problem(400, "The last month comes before the first.")
+        months = (last.year - first.year) * 12 + last.month - first.month + 1
+        if months > MOST_MONTHS:
+            return _problem(400, f"Choose at most {MOST_MONTHS} months at a time; {months} were asked for.")
+        return jsonify(store.clips(first, last))
+
     @app.post("/api/presses/<int:press_id>/review")
     def review_press(press_id: int) -> Response:
         return _review(lambda decision: store.review_press(press_id, decision), f"Press {press_id}")
@@ -132,6 +150,16 @@ def create_app(config: Config) -> Flask:
             return _problem(404, f"Exchange {exchange_id} has no Clip.")
         # conditional=True lets the browser seek within the video.
         return send_from_directory(config.clips_dir, clip_path, mimetype="video/mp4", conditional=True)
+
+    @app.get("/clips/<int:exchange_id>.jpg")
+    def thumbnail(exchange_id: int) -> Response:
+        path = store.thumbnail_path(exchange_id)
+        if path is None or not (config.clips_dir / path).is_file():
+            return _problem(404, f"Exchange {exchange_id} has no thumbnail.")
+        reply = send_from_directory(config.clips_dir, path, mimetype="image/jpeg", conditional=True)
+        # A Clip's thumbnail never changes once it exists.
+        reply.headers["Cache-Control"] = "max-age=86400"
+        return reply
 
     # The Home Assistant app can open Daily Summary but cannot say which Clip to show. So the
     # "Open Clip" button of an Utterance Alert leaves the Clip's name here just before the page
@@ -243,6 +271,17 @@ def _passed_on(status: int, headers, body: bytes) -> Response:
     reply = Response(body, status=status, mimetype=headers.get_content_type())
     reply.headers["Cache-Control"] = "no-store"
     return reply
+
+
+def _month(text, default: date) -> date:
+    """A month given as 2026-10, as the date of its first day."""
+    if text is None:
+        return default
+    try:
+        year, month = (int(part) for part in text.split("-"))
+        return date(year, month, 1)
+    except ValueError:
+        raise ValueError(f"'{text}' is not a month such as 2026-10") from None
 
 
 def _whole_number(name: str, default: int) -> int:

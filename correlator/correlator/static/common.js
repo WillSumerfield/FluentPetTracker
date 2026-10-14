@@ -13,6 +13,7 @@ const PAGES = [
   { path: "./", title: "Daily Summary" },
   { path: "review", title: "Review" },
   { path: "live", title: "Live Feed" },
+  { path: "clips", title: "Clips" },
   { path: "metrics", title: "Metrics" },
   { path: "enrol", title: "Enrolment" },
 ];

@@ -155,6 +155,60 @@ class Store:
             )
         return exchanges
 
+    # ---- The Clips page ---------------------------------------------------------
+
+    def clips(self, first_month: date, last_month: date) -> dict:
+        """Every Exchange with a Clip, or one still to be cut, in whole months, by day.
+
+        Failed Clips are left out, and so is an Exchange whose every Press was discarded: it
+        holds no Utterance, so there is nothing in it to look back on.
+        """
+        start = metrics.start_of(first_month)
+        end = metrics.start_of(_next_month(last_month))
+        with self._connect() as connection:
+            exchanges = self._exchanges(
+                connection, "started_at >= ? AND started_at < ? AND clip_status != 'failed'", (start, end)
+            )
+            words = [row[0] for row in connection.execute("SELECT DISTINCT word FROM presses ORDER BY word")]
+            earliest = connection.execute("SELECT MIN(started_at) FROM utterances").fetchone()[0]
+
+        days: Dict[str, List[dict]] = {}
+        for exchange in exchanges:
+            if not exchange["utterances"]:
+                continue
+            ready = exchange["clip_status"] == "ready"
+            days.setdefault(date.fromtimestamp(exchange["started_at"]).isoformat(), []).append(
+                {
+                    "id": exchange["id"],
+                    "started_at": exchange["started_at"],
+                    "ready": ready,
+                    "duration": exchange["clip_ended_at"] - exchange["clip_started_at"] if ready else None,
+                    "thumbnail_url": f"clips/{exchange['id']}.jpg" if ready else None,
+                    "presses": sum(1 for press in exchange["presses"] if press["presser"] != "discarded"),
+                    "utterances": [
+                        {"presser": utterance["presser"], "words": utterance["words"]}
+                        for utterance in exchange["utterances"]
+                    ],
+                    "pet_spoke": any(utterance["presser"] == "pet" for utterance in exchange["utterances"]),
+                    "awaiting_review": any(
+                        press["automatic_presser"] == "ambiguous" and press["review_decision"] is None
+                        for press in exchange["presses"]
+                    ),
+                }
+            )
+        return {
+            "from": first_month.isoformat(),
+            "to": (_next_month(last_month) - timedelta(days=1)).isoformat(),
+            "today": date.today().isoformat(),
+            "first_day": date.fromtimestamp(earliest).isoformat() if earliest else date.today().isoformat(),
+            "words": words,
+            "days": [{"date": day, "clips": clips} for day, clips in sorted(days.items(), reverse=True)],
+        }
+
+    def thumbnail_path(self, exchange_id: int) -> Optional[str]:
+        clip_path = self.clip_path(exchange_id)
+        return str(Path(clip_path).with_suffix(".jpg")) if clip_path else None
+
     # ---- Figures ----------------------------------------------------------------
 
     def day(self, day: date) -> dict:
@@ -272,6 +326,10 @@ class Store:
             if span[1] > span[0]:
                 spans.append(span)
         return spans
+
+
+def _next_month(month: date) -> date:
+    return date(month.year + month.month // 12, month.month % 12 + 1, 1)
 
 
 def _check(decision: Optional[str]) -> None:
