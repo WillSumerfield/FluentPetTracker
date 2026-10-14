@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
 import urllib.error
 import urllib.request
@@ -19,6 +20,24 @@ MAX_ATTEMPTS = 3
 RETRY_SECONDS = 30.0
 EXPORT_TIMEOUT_SECONDS = 180.0
 REQUEST_TIMEOUT_SECONDS = 10.0
+
+# Made once, by hand, in the folder meant for Clips. A folder without it is taken to be the
+# wrong place: for one, the empty folder Docker makes when the drive for Clips is not connected.
+CLIPS_MARKER = ".fluentpet-clips"
+
+
+def clip_folder_problem(folder: Path) -> Optional[str]:
+    """Why Clips cannot be saved to this folder now, or None when they can."""
+    if not folder.is_dir():
+        return f"the Clip folder {folder} does not exist"
+    if not (folder / CLIPS_MARKER).is_file():
+        return (
+            f"the Clip folder {folder} has no {CLIPS_MARKER} file, so it may not be the intended "
+            "drive (is it connected?)"
+        )
+    if not os.access(folder, os.W_OK):
+        return f"the Clip folder {folder} cannot be written to"
+    return None
 
 
 class FrigateError(Exception):
@@ -60,6 +79,10 @@ class ClipCutter:
 
     def _start(self, utterance, now: float) -> None:
         utterance_id = utterance["id"]
+        problem = clip_folder_problem(self._config.clips_dir)
+        if problem:
+            self._give_up_or_retry(utterance, problem, now)
+            return
         path = (
             f"/api/export/{self._config.camera}"
             f"/start/{utterance['clip_started_at']:.3f}/end/{utterance['clip_ended_at']:.3f}"
@@ -88,16 +111,19 @@ class ClipCutter:
 
         source = self._config.exports_dir / Path(export.get("video_path") or "").name
         target = self._config.clips_dir / f"utterance-{utterance_id:06d}.mp4"
+        problem = clip_folder_problem(self._config.clips_dir)
+        if problem:
+            self._give_up_or_retry(utterance, problem, now)
+            return
         try:
             if not source.is_file() or source.stat().st_size == 0:
                 raise OSError(f"{source.name} is missing or empty")
-            target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
         except OSError as error:
             self._give_up_or_retry(utterance, f"cannot copy the exported file: {error}", now)
             return
 
-        self._database.clip_ready(utterance_id, str(target.relative_to(self._config.data_dir)))
+        self._database.clip_ready(utterance_id, target.name)
         self._exporting_since.pop(utterance_id, None)
         self._not_before.pop(utterance_id, None)
         log.info(

@@ -120,7 +120,7 @@ def create_app(config: Config) -> Flask:
         if clip_path is None:
             return _problem(404, f"Exchange {exchange_id} has no Clip.")
         # conditional=True lets the browser seek within the video.
-        return send_from_directory(config.data_dir, clip_path, mimetype="video/mp4", conditional=True)
+        return send_from_directory(config.clips_dir, clip_path, mimetype="video/mp4", conditional=True)
 
     # The Home Assistant app can open Daily Summary but cannot say which Clip to show. So the
     # "Open Clip" button of an Utterance Alert leaves the Clip's name here just before the page

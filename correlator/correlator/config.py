@@ -23,6 +23,7 @@ class Config:
     camera: str
     zone: str
     data_dir: Path
+    clips_dir: Path
     exports_dir: Path
     utterance_gap_seconds: float
     utterance_max_seconds: float
@@ -42,10 +43,6 @@ class Config:
     def database_path(self) -> Path:
         return self.data_dir / "correlator.db"
 
-    @property
-    def clips_dir(self) -> Path:
-        return self.data_dir / "clips"
-
     @classmethod
     def from_environment(cls) -> "Config":
         config = cls(
@@ -60,6 +57,8 @@ class Config:
             camera=os.environ.get("CR_CAMERA", "board"),
             zone=os.environ.get("CR_ZONE", "board_zone"),
             data_dir=Path(os.environ.get("CR_DATA_DIR", "/data")),
+            # Where Clips are kept; it must hold a .fluentpet-clips file (see clips.py).
+            clips_dir=Path(os.environ.get("CR_CLIPS_DIR", "/data/clips")),
             exports_dir=Path(os.environ.get("CR_EXPORTS_DIR", "/frigate-exports")),
             utterance_gap_seconds=_positive("CR_UTTERANCE_GAP_SECONDS", 20.0),
             utterance_max_seconds=_positive("CR_UTTERANCE_MAX_SECONDS", 300.0),

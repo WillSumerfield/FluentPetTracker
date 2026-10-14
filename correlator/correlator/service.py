@@ -19,7 +19,7 @@ from typing import List, Optional
 
 import paho.mqtt.client as mqtt
 
-from .clips import ClipCutter
+from .clips import ClipCutter, clip_folder_problem
 from .config import Config, ConfigError
 from .database import Database
 from .metrics import split_utterances
@@ -63,6 +63,11 @@ class Service:
         self._mqtt = self._build_mqtt_client()
 
     def run(self) -> None:
+        problem = clip_folder_problem(self._config.clips_dir)
+        if problem:
+            log.warning("Clips cannot be saved: %s. Presses are still recorded.", problem)
+        else:
+            log.info("Clips are saved to %s.", self._config.clips_dir)
         abandoned = self._database.end_abandoned_windows()
         if abandoned:
             log.warning("Ended %d Observation Window(s) left open by an earlier crash.", abandoned)

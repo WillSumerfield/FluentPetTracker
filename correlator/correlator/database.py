@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS utterances (
     closed_at       REAL,                    -- NULL while more Presses may still join
     clip_status     TEXT NOT NULL DEFAULT 'waiting'
                     CHECK (clip_status IN ('waiting', 'exporting', 'ready', 'failed')),
-    clip_path       TEXT,                    -- relative to the data folder
+    clip_path       TEXT,                    -- file name within the Clip folder
     clip_started_at REAL,
     clip_ended_at   REAL,
     clip_export_id  TEXT,
