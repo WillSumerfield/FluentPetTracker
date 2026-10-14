@@ -120,11 +120,14 @@ automation:
       - variables:
           cat_text: "{{ trigger.payload_json.cat_text | default('') }}"
           review_text: "{{ trigger.payload_json.review_text | default('') }}"
+          # Each Utterance awaiting review in its own quotes: "want outside" · "food".
+          new_clip: >-
+            {{ ('New Clip: "' ~ review_text.replace(' · ', '" · "') ~ '"') if review_text else '' }}
       - action: notify.notify
         data:
-          title: "{{ 'The cat said' if cat_text else 'Awaiting review' }}"
+          title: "{{ 'The cat said' if cat_text else new_clip }}"
           message: >-
-            {{ cat_text }}{{ '\n' if cat_text and review_text }}{{ ('Awaiting review: ' if cat_text else '') ~ review_text if review_text }}
+            {{ cat_text ~ '\n' ~ new_clip if cat_text and review_text else cat_text or review_text }}
           data:
             url: /fluentpet-daily/daily-summary
             tag: "fluentpet-exchange-{{ trigger.payload_json.exchange_id }}"
