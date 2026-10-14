@@ -69,6 +69,16 @@ if ! grep -q '^dtoverlay=imx708' "$CONFIG_TXT"; then
     reboot_needed=yes
 fi
 
+# With no screen, the GPU needs little of the memory set aside for it (CMA). The default 256 MB
+# leaves the Pi so little ordinary memory that a USB webcam's buffers ran it out; 128 MB is
+# still far more than the camera's frame buffers need.
+if grep -q '^dtoverlay=vc4-kms-v3d$' "$CONFIG_TXT"; then
+    [ -f "$CONFIG_TXT.before-rpi-capture" ] || cp "$CONFIG_TXT" "$CONFIG_TXT.before-rpi-capture"
+    sed -i 's/^dtoverlay=vc4-kms-v3d$/dtoverlay=vc4-kms-v3d,cma-128/' "$CONFIG_TXT"
+    echo "Set aside 128 MB for the GPU and camera in $CONFIG_TXT, in place of 256 MB."
+    reboot_needed=yes
+fi
+
 # Wi-Fi power saving is the usual cause of the stream stalling. Takes effect on the next connection.
 install -d /etc/NetworkManager/conf.d
 printf '[connection]\n# RPi Capture: power saving stalls the stream\nwifi.powersave = 2\n' \

@@ -37,7 +37,7 @@ if ! rpicam-hello --list-cameras 2>/dev/null | grep -q '^[0-9]'; then
     # The test picture is made and encoded in software, so it is kept small and slow
     # (about half of one core); the camera's own encoder does the real picture.
     echo "rpi-capture: no camera found; streaming a 640x360 test pattern at 10 fps with the mic" >&2
-    exec ffmpeg -nostdin -hide_banner -loglevel error \
+    exec ffmpeg -nostdin -hide_banner -loglevel error -xerror \
         -re -f lavfi -i testsrc2=size=640x360:rate=10 \
         -thread_queue_size 1024 -f alsa -sample_rate 44100 -channels 1 -i "$MIC" \
         -map 0:v -map 1:a -c:v libx264 -preset ultrafast -tune zerolatency -g 10 -pix_fmt yuv420p \
@@ -55,7 +55,7 @@ rpicam-vid --nopreview --verbose 0 -t 0 \
     --codec h264 --inline --intra "$FPS" \
     --autofocus-mode manual --lens-position "$LENS_POSITION" \
     -o - \
-| ffmpeg -nostdin -hide_banner -loglevel error \
+| ffmpeg -nostdin -hide_banner -loglevel error -xerror \
     -thread_queue_size 1024 -use_wallclock_as_timestamps 1 -f h264 -i - \
     -thread_queue_size 1024 -f alsa -sample_rate 44100 -channels 1 -i "$MIC" \
     -map 0:v -map 1:a -c:v copy -c:a aac -b:a 128k \
