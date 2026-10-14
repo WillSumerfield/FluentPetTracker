@@ -3,6 +3,7 @@
 #
 #   ./fluentpet.sh up              write the settings from config.yml, then start everything
 #   ./fluentpet.sh configure       only write the settings (add --check to write nothing)
+#   ./fluentpet.sh thumbnails      give Clips cut before thumbnails existed one each
 #   ./fluentpet.sh <anything else> passed to docker compose, e.g.  ./fluentpet.sh logs -f correlator
 set -eu
 
@@ -28,11 +29,14 @@ compose() {
 command=${1:-}
 case "$command" in
     "" | -h | --help | help)
-        sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
         ;;
     configure)
         shift
         configure "$@"
+        ;;
+    thumbnails)
+        python3 "$root/correlator/backfill_thumbnails.py"
         ;;
     up)
         shift

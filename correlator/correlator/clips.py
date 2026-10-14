@@ -22,6 +22,8 @@ RETRY_SECONDS = 30.0
 EXPORT_TIMEOUT_SECONDS = 180.0
 REQUEST_TIMEOUT_SECONDS = 10.0
 EXPORT_NAME = re.compile(r"utterance-\d+")
+# The still shown for a Clip on the Clips page: the frame at its first Press, this many pixels high.
+THUMBNAIL_HEIGHT = 360
 
 # Made once, by hand, in the folder meant for Clips. A folder without it is taken to be the
 # wrong place: for one, the empty folder Docker makes when the drive for Clips is not connected.
@@ -40,6 +42,11 @@ def clip_folder_problem(folder: Path) -> Optional[str]:
     if not os.access(folder, os.W_OK):
         return f"the Clip folder {folder} cannot be written to"
     return None
+
+
+def thumbnail_path(clip: Path) -> Path:
+    """Where a Clip's thumbnail is kept: beside it, with the same name."""
+    return clip.with_suffix(".jpg")
 
 
 class FrigateError(Exception):
@@ -139,11 +146,29 @@ class ClipCutter:
             target.name,
             utterance["clip_ended_at"] - utterance["clip_started_at"],
         )
+        self._save_thumbnail(utterance, thumbnail_path(target))
         try:
             self._request("POST", "/api/exports/delete", {"ids": [export["id"]]})
             self._removed.add(export["id"])
         except FrigateError as error:
             log.warning("Clip saved, but Frigate's copy of the export could not be removed: %s", error)
+
+    def _save_thumbnail(self, utterance, target: Path) -> None:
+        """Keep the frame at the first Press beside the Clip. Frigate holds its footage for only an
+        hour, so this is done now or not at all; a Clip without one is shown with a plain tile."""
+        path = (
+            f"/api/{self._config.camera}/recordings/{utterance['started_at']:.3f}"
+            f"/snapshot.jpg?height={THUMBNAIL_HEIGHT}"
+        )
+        try:
+            picture = self._request_bytes(path)
+            if not picture.startswith(b"\xff\xd8"):
+                raise FrigateError("Frigate's reply is not a JPEG picture")
+            partial = target.with_name(target.name + ".partial")
+            partial.write_bytes(picture)
+            partial.replace(target)
+        except (FrigateError, OSError) as error:
+            log.warning("Clip saved, but no thumbnail for Utterance %d: %s", utterance["id"], error)
 
     def _remove_leftovers(self, exports: Dict[str, dict], in_use: set) -> None:
         """Delete finished exports of ours that no Clip is waiting on, such as one that
@@ -176,6 +201,15 @@ class ClipCutter:
             self._database.clip_retry(utterance_id, error)
             self._not_before[utterance_id] = now + RETRY_SECONDS
             log.warning("Clip for Utterance %d not cut yet (%s); trying again shortly.", utterance_id, error)
+
+    def _request_bytes(self, path: str) -> bytes:
+        try:
+            with urllib.request.urlopen(self._config.frigate_url + path, timeout=REQUEST_TIMEOUT_SECONDS) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            raise FrigateError(f"Frigate answered {error.code} to GET {path}") from error
+        except (urllib.error.URLError, OSError) as error:
+            raise FrigateError(f"cannot reach Frigate at {self._config.frigate_url}: {error}") from error
 
     def _request(self, method: str, path: str, body: Optional[dict] = None):
         data = json.dumps(body).encode() if body is not None else None
