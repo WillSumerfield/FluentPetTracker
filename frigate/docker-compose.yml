@@ -4,13 +4,14 @@
 # Tailscale Serve, which forwards to these same local ports (see the README).
 
 services:
-  # Stand-in for the Pi: loops a video file as the RTSP stream the Pi will later serve.
-  # Remove this service once the real RPi Capture stream exists.
+  # The stream everything here reads, at rtsp://mediamtx:8554/board. It relays the Pi's stream
+  # (relay/). To go back to the looping stand-in video, mount ./standin/mediamtx.yml instead,
+  # and give the correlator CR_UTTERANCE_GAP_SECONDS: "8", or its Utterances never close.
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
     restart: unless-stopped
     volumes:
-      - ./standin/mediamtx.yml:/mediamtx.yml:ro
+      - ./relay/mediamtx.yml:/mediamtx.yml:ro
       - ./standin/cat.mp4:/standin/cat.mp4:ro
     ports:
       - "127.0.0.1:8554:8554"
@@ -47,10 +48,6 @@ services:
       - mosquitto
       - frigate
       - word-detection
-    environment:
-      # Stand-in only: the looping video never leaves the real 20-second gap between
-      # Presses, so Utterances would never close. Remove once the real stream exists.
-      CR_UTTERANCE_GAP_SECONDS: "8"
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ../correlator/data:/data
