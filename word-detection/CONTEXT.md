@@ -7,7 +7,7 @@ Runs on the local PC. Custom audio pipeline that consumes the mic feed and ident
 A Python service that runs as a container in the Frigate stack. It listens to the stream, matches it against the Reference Clips, and publishes each Word it hears to the MQTT broker. It also carries out Enrolment for the Enrolment page, which reaches it through the Correlator's web service, and starts using new Reference Clips without a restart.
 
 - **word_detection/**: the service and its Enrolment, plus a command-line Enrolment tool and a tool for checking matches in a recording.
-- **references/**: the Reference Clips, one folder per Word.
+- **references/**: the Reference Clips, one folder per Word (not committed: they are made by Enrolment, for one mic in one place).
 - **data/**: an Enrolment Recording waiting to be saved (not committed).
 - **Dockerfile**, **requirements.txt**: how the container is built.
 

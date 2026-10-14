@@ -33,8 +33,9 @@ frigate/config/*
 # Correlator runtime data (database and Clips)
 correlator/data/
 
-# Word Detection runtime data (an Enrolment Recording waiting to be saved)
+# Word Detection runtime data (the Reference Clips, and an Enrolment Recording waiting to be saved)
 word-detection/data/
+word-detection/references/
 
 # Home Assistant runtime data (its own database, accounts and caches)
 home-assistant/config/*
