@@ -32,6 +32,9 @@ SNAPSHOT_TIMEOUT_SECONDS = 3.0
 ENROLMENT_TIMEOUT_SECONDS = 30.0
 # How long a request to show one Clip stands. It only has to outlast the phone opening the page.
 OPEN_CLIP_SECONDS = 30.0
+# Asking the Pi whether it is Paused is quick; Resume waits for MediaMTX to start, which is not.
+CAPTURE_STATUS_TIMEOUT_SECONDS = 4.0
+CAPTURE_SWITCH_TIMEOUT_SECONDS = 40.0
 
 
 PAGES = {
@@ -165,6 +168,38 @@ def create_app(config: Config) -> Flask:
         except (urllib.error.URLError, OSError) as error:
             return _problem(503, f"Frigate gave no picture: {error}")
         return Response(picture, mimetype="image/jpeg", headers={"Cache-Control": "no-store"})
+
+    # Pause and Resume happen at the Pi, which answers only the PC: what the Live Feed asks
+    # is passed on from here. The answer is the Pi's own, or "unreachable", never a guess.
+    @app.get("/api/capture")
+    def capture_status() -> Response:
+        return _ask_pi("GET", "status", CAPTURE_STATUS_TIMEOUT_SECONDS)
+
+    @app.post("/api/capture/<any(pause, resume):action>")
+    def capture_switch(action: str) -> Response:
+        log.info("Asked the Pi to %s capture.", action)
+        return _ask_pi("POST", action, CAPTURE_SWITCH_TIMEOUT_SECONDS)
+
+    def _ask_pi(method: str, action: str, timeout: float) -> Response:
+        if not config.pi_control_url:
+            return _problem(404, "Pause is not set up: CR_PI_CONTROL_URL is empty.")
+        body = b"" if method == "POST" else None
+        asked = urllib.request.Request(f"{config.pi_control_url}/{action}", data=body, method=method)
+        try:
+            with urllib.request.urlopen(asked, timeout=timeout) as reply:
+                return _passed_on(reply.status, reply.headers, reply.read())
+        except urllib.error.HTTPError as error:
+            # The Pi said no, with its reason: that is an answer, and is handed back too.
+            return _passed_on(error.code, error.headers, error.read())
+        except (urllib.error.URLError, OSError) as error:
+            if method == "POST":
+                log.warning("The Pi could not be reached to %s capture: %s", action, error)
+            reply = jsonify(
+                {"state": "unreachable", "error": "The Pi cannot be reached, so whether it is Paused is not known."}
+            )
+            reply.status_code = 502
+            reply.headers["Cache-Control"] = "no-store"
+            return reply
 
     # Enrolment belongs to Word Detection. The page sits with the others, so what it asks for
     # is passed on from here and the answer handed back unchanged.

@@ -68,6 +68,7 @@ services:
     # No depends_on: rebuilding these pages must not restart the recording service.
     environment:
       CR_CLIPS_DIR: /clips
+      CR_PI_CONTROL_URL: http://192.168.0.104:8800 # Pause and Resume, at the Pi
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ../correlator/data:/data

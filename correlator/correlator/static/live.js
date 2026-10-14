@@ -5,6 +5,9 @@
 //
 // Sound comes on by itself where the browser allows it. Where it does not, the feed starts
 // silent and the sound is tried again on a timer until the browser lets it through.
+//
+// Pause and Resume switch capture off and on at the Pi. While Paused there is nothing to show,
+// so no picture is asked for and nothing is retried until Resume.
 
 const RETRY_MS = 4000;
 const STILL_REFRESH_MS = 1000;
@@ -16,6 +19,16 @@ const CUSHION_SECONDS = 1.2;
 const SOUND_CHOICE_KEY = "fluentpet.live.sound";
 // How often the sound is tried again while the browser is making the feed play silently.
 const SOUND_RETRY_SECONDS = 2;
+// How often the Pi is asked whether it is Paused, so a Pause made elsewhere shows here too.
+const CAPTURE_REFRESH_MS = 5000;
+const CAPTURE_LABELS = {
+  live: "Pause",
+  starting: "Starting…",
+  down: "Pause",
+  paused: "Resume",
+  unreachable: "Can't reach the Pi",
+  error: "Pause unavailable",
+};
 // What go2rtc is asked for; only the ones this browser can play are sent.
 const CODECS = ["avc1.640029", "avc1.64002A", "avc1.640033", "hvc1.1.6.L153.B0", "mp4a.40.2", "mp4a.40.5", "flac", "opus"];
 
@@ -30,6 +43,10 @@ let wantSound = readSoundChoice();
 let starting = false;
 let soundTries = 0; // since the feed last had to start silently
 let refilling = false; // paused after running dry, until the cushion is back
+let capture = null; // the Pi's last answer about capture; null until it has given one
+// Kept apart from that answer: losing touch with the Pi does not end a Pause.
+let paused = false;
+let switching = false; // a Pause or Resume is on its way to the Pi
 
 // An iPhone has no MediaSource, only this close relative of it (iOS 17.1 and later).
 const SourceType = window.MediaSource || window.ManagedMediaSource;
@@ -124,6 +141,7 @@ async function turnSoundOn() {
 
 function connect() {
   retryTimer = null;
+  if (isPaused()) return;
   if (!SourceType) {
     setFeedState("This browser cannot play the live stream, so a still picture is shown.");
     showStill(true);
@@ -180,6 +198,7 @@ function connect() {
   });
   socket.addEventListener("close", () => {
     refilling = false;
+    if (isPaused()) return; // closed on purpose, and not to be retried
     setFeedState("No live stream: the camera or Frigate is not sending. Trying again…");
     showStill(true);
     retryTimer = setTimeout(connect, retryAtOnce ? 0 : RETRY_MS);
@@ -247,6 +266,106 @@ function trim(buffer) {
   }
 }
 
+// ---- Pause and Resume ---------------------------------------------------------
+
+function isPaused() {
+  return paused;
+}
+
+// Asks the Correlator, which asks the Pi. Always gives back a state: the Pi's own, or why there is none.
+async function askCapture(path, options) {
+  let reply;
+  try {
+    reply = await fetch(path, options);
+  } catch (error) {
+    return { state: "unreachable", error: "The Correlator's web service cannot be reached." };
+  }
+  let body = null;
+  try {
+    body = await reply.json();
+  } catch (error) {
+    // Handled below, as a failure.
+  }
+  if (reply.status === 404 && !options) return { state: "not-set-up" };
+  if (reply.ok && body && body.state) return body;
+  if (body && body.state === "unreachable") return body;
+  return { state: "error", error: (body && body.error) || `The request failed (${reply.status}).` };
+}
+
+async function refreshCapture() {
+  if (switching) return;
+  showCapture(await askCapture("api/capture"));
+}
+
+async function switchCapture() {
+  if (switching || capture === null) return;
+  const action = paused ? "resume" : "pause";
+  switching = true;
+  $("capture").disabled = $("resume").disabled = true;
+  $("capture").textContent = action === "pause" ? "Pausing…" : "Resuming…";
+  $("resume").textContent = "Resuming…";
+  const answer = await askCapture(`api/capture/${action}`, { method: "POST" });
+  switching = false;
+  if (answer.state === "error" || answer.state === "unreachable") {
+    showProblem(new Error(`Could not ${action}: ${answer.error}`));
+    await refreshCapture(); // shows what the Pi is actually doing
+    return;
+  }
+  clearProblem();
+  showCapture(answer);
+}
+
+function pausedSinceText(since) {
+  if (!since) return "Since an unknown time.";
+  const when = new Date(since * 1000);
+  const time = clockTime(since, false);
+  if (isoDate(when) === isoDate(new Date())) return `Since ${time} today.`;
+  return `Since ${time} on ${when.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" })}.`;
+}
+
+function showCapture(next) {
+  const wasPaused = paused;
+  const known = !["unreachable", "error"].includes(next.state);
+  capture = next;
+  if (known) paused = next.state === "paused";
+  const usable = !switching && ["live", "down", "paused"].includes(next.state);
+
+  const button = $("capture");
+  button.hidden = next.state === "not-set-up";
+  button.textContent = CAPTURE_LABELS[next.state] || "Pause";
+  button.disabled = !usable;
+  button.classList.toggle("resume", next.state === "paused");
+  if (next.error) button.title = next.error;
+  else button.title = paused ? "Turn the camera and mic back on" : "Turn the camera and mic off at the Pi";
+  $("resume").disabled = !usable;
+  $("resume").textContent = usable || switching ? "Resume" : "Can't reach the Pi";
+
+  if (paused) {
+    if (next.state === "paused") $("paused-since").textContent = pausedSinceText(next.since);
+    if (!wasPaused) stopFeed();
+    setFeedState("Paused");
+  } else if (wasPaused) {
+    // Resumed, here or elsewhere: the stream takes a few seconds to come back.
+    $("paused").hidden = true;
+    setFeedState("Resumed: waiting for the stream…");
+    if (address) connect();
+    else begin();
+  }
+}
+
+// Lets go of the stream and shows the Paused panel in place of the picture.
+function stopFeed() {
+  if (retryTimer !== null) clearTimeout(retryTimer);
+  retryTimer = null;
+  if (socket && socket.readyState !== WebSocket.CLOSED) socket.close();
+  video.pause();
+  video.removeAttribute("src");
+  video.load();
+  video.hidden = true;
+  still.hidden = true;
+  $("paused").hidden = false;
+}
+
 async function start() {
   setUpHeader();
   $("sound").addEventListener("click", () => setSound(video.muted));
@@ -265,7 +384,15 @@ async function start() {
     if (socket && socket.readyState === WebSocket.OPEN && lastData && Date.now() - lastData > STALL_MS) socket.close();
   }, STILL_REFRESH_MS);
 
-  onWake(reconnectNow);
+  $("capture").addEventListener("click", switchCapture);
+  $("resume").addEventListener("click", switchCapture);
+  setInterval(refreshCapture, CAPTURE_REFRESH_MS);
+  onWake(() => {
+    refreshCapture();
+    reconnectNow();
+  });
+  // Whether the Pi is Paused is known before any picture is asked for.
+  await refreshCapture();
   await begin();
 }
 

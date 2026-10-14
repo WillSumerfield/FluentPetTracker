@@ -37,6 +37,7 @@ class Config:
     counted_day_hours: float
     live_stream_url: str
     word_detection_url: str
+    pi_control_url: str
     log_level: str
 
     @property
@@ -74,6 +75,8 @@ class Config:
             live_stream_url=os.environ.get("CR_LIVE_STREAM_URL", "").strip(),
             # Where Word Detection does the work of the Enrolment page.
             word_detection_url=os.environ.get("CR_WORD_DETECTION_URL", "http://word-detection:8700").rstrip("/"),
+            # Where the Pi's control service Pauses and Resumes capture. Empty: the Live Feed has no Pause.
+            pi_control_url=os.environ.get("CR_PI_CONTROL_URL", "").strip().rstrip("/"),
             log_level=os.environ.get("CR_LOG_LEVEL", "INFO").upper(),
         )
         if config.utterance_max_seconds <= config.utterance_gap_seconds:

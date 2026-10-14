@@ -11,6 +11,7 @@
     <h1>Live Feed</h1>
     <span class="hint" id="feed-state">Connecting…</span>
     <button id="sound" class="quiet sound-state">Sound off</button>
+    <button id="capture" class="quiet capture-switch" hidden>Pause</button>
     <span class="status" id="status">Connecting…</span>
   </header>
 
@@ -19,6 +20,12 @@
   <main class="live">
     <video id="video" muted playsinline></video>
     <img id="still" alt="The FluentPet Board, as the camera sees it now" hidden>
+    <section class="paused-panel" id="paused" hidden>
+      <h2>Paused</h2>
+      <p class="paused-since" id="paused-since"></p>
+      <p>The camera and mic are off at the Pi. Nothing is seen, heard or recorded until you Resume.</p>
+      <button id="resume" class="record-button">Resume</button>
+    </section>
   </main>
 
   <script src="static/common.js"></script>
