@@ -5,7 +5,7 @@
 const LOOP_BEFORE_SECONDS = 3;
 const LOOP_AFTER_SECONDS = 3;
 // Under the left hand, so a sitting can be worked through without looking down.
-const REVIEW_KEYS = { a: "cat", d: "human", s: "discarded" };
+const REVIEW_KEYS = { a: "pet", d: "human", s: "discarded" };
 const SOUND_CHOICE_KEY = "fluentpet.review.sound";
 // How often the sound is tried again while the browser is making a Clip play silently.
 const SOUND_RETRY_SECONDS = 2;

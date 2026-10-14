@@ -1,12 +1,12 @@
 "use strict";
 
-// Metrics: the study's figures for one period, with the cat and the human always side by side
+// Metrics: the study's figures for one period, with the Pet and the human always side by side
 // in separate charts, never mixed into one. The charts are split into groups shown one at a
 // time; a search finds one chart, or a Word to highlight in every chart that lists Words.
 
-const PRESSERS = ["cat", "human"];
-const WHO = { cat: "The cat", human: "Humans" };
-const WHO_LOWER = { cat: "the cat", human: "humans" };
+const PRESSERS = ["pet", "human"];
+const WHO = { pet: PET_NAME, human: "Humans" };
+const WHO_LOWER = { pet: PET_NAME, human: "humans" };
 const SVG = "http://www.w3.org/2000/svg";
 const PERIODS = ["day", "week", "month", "all"];
 const DEFAULT_PERIOD = "week";
@@ -399,7 +399,7 @@ const SECTIONS = [
       `An Utterance counts as a Reply when it is the next one said after the other Presser's, within ${Math.round(data.response_seconds / 60)} minutes.`,
     draw: (who, presser) => [
       figures([
-        [number(who.replies.count), presser === "cat" ? "replies to a human" : "replies to the cat"],
+        [number(who.replies.count), presser === "pet" ? "replies to a human" : `replies to ${PET_NAME}`],
         [percent(who.replies.share), "of their Utterances"],
         [duration(who.replies.median_delay), "median delay"],
       ]),
@@ -427,7 +427,7 @@ function trendChooser() {
   return chooser;
 }
 
-// One section of the page: a heading, then the same chart for the cat and for the human.
+// One section of the page: a heading, then the same chart for the Pet and for the human.
 function drawSection(definition) {
   const data = state.data;
   const block = element("section", "metric");
@@ -757,7 +757,7 @@ function longestLine(who, presser) {
 
 function replyList(replies, presser) {
   if (!replies.length) return element("p", "empty", "No replies in this period.");
-  const other = presser === "cat" ? "human" : "cat";
+  const other = presser === "pet" ? "human" : "pet";
   const list = element("div", "replies");
   for (const reply of replies) {
     const row = element("div", "reply");

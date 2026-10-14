@@ -7,7 +7,7 @@ const DAY_SECONDS = 86400;
 const DAY_REFRESH_MS = 15000;
 const MIN_VIEW_SECONDS = 60;
 const CLICK_REACH_PX = 14;
-const LANES = ["cat", "human", "ambiguous"];
+const LANES = ["pet", "human", "ambiguous"];
 // After the page appears, how long and how often it asks whether an Utterance Alert's
 // "Open Clip" button wants one Clip shown. The button's message can arrive after the page does.
 const OPEN_CLIP_WATCH_MS = 10000;
@@ -283,7 +283,7 @@ function renderClipPanel() {
   }
 
   panel.appendChild(
-    element("p", "hint keys", "Keys: C cat · H human · D discard · U undo · ← → Press · [ ] Clip · Space play"),
+    element("p", "hint keys", `Keys: C ${PET_NAME} · H human · D discard · U undo · ← → Press · [ ] Clip · Space play`),
   );
   const chosen = panel.querySelector(".press.selected");
   if (chosen) chosen.scrollIntoView({ block: "nearest" });
@@ -302,7 +302,7 @@ function pressRow(exchange, press) {
 
   let detail;
   if (press.review_decision) {
-    detail = `Review Decision. Automatic answer: ${PRESSER_LABELS[press.automatic_presser].toLowerCase()}.`;
+    detail = `Review Decision. Automatic answer: ${presserInSentence(press.automatic_presser)}.`;
   } else if (press.automatic_presser === "ambiguous") {
     detail = `Awaiting review. ${AMBIGUITY_REASONS[press.ambiguity] || ""}`;
   } else {
@@ -331,19 +331,19 @@ function renderDayPanel() {
 
   const tiles = element("div", "tiles");
   tiles.appendChild(tile(state.day.exchanges.length, state.day.exchanges.length === 1 ? "Clip" : "Clips"));
-  tiles.appendChild(tile(figures.cat.words, "Words by the cat"));
+  tiles.appendChild(tile(figures.pet.words, `Words by ${PET_NAME}`));
   tiles.appendChild(tile(figures.human.words, "Words by a human"));
-  tiles.appendChild(tile(figures.cat.utterances, "cat Utterances"));
+  tiles.appendChild(tile(figures.pet.utterances, `Utterances by ${PET_NAME}`));
   tiles.appendChild(tile(figures.human.utterances, "human Utterances"));
-  tiles.appendChild(tile(figures.cat.distinct_words, "different Words by the cat"));
+  tiles.appendChild(tile(figures.pet.distinct_words, `different Words by ${PET_NAME}`));
   tiles.appendChild(tile(figures.awaiting_review, "Presses awaiting review"));
   tiles.appendChild(tile(`${figures.observed_hours} h`, "observed"));
-  tiles.appendChild(tile(figures.cat.longest.length || "–", "Words in the cat's longest Utterance"));
+  tiles.appendChild(tile(figures.pet.longest.length || "–", `Words in ${PET_NAME}'s longest Utterance`));
   panel.appendChild(tiles);
 
-  if (figures.cat.longest.length > 1) {
+  if (figures.pet.longest.length > 1) {
     const longest = element("p", "hint");
-    longest.append("Longest by the cat: ", phraseChips(figures.cat.longest, "cat"));
+    longest.append(`Longest by ${PET_NAME}: `, phraseChips(figures.pet.longest, "pet"));
     panel.appendChild(longest);
   }
   if (!state.day.counted) {

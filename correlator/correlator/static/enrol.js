@@ -464,7 +464,7 @@ function drawOverview() {
 
   for (const span of drag && drag.adding ? [...state.spans, drag.adding] : state.spans) {
     const chosen = span.id === state.selected;
-    context.fillStyle = colour(span.word ? "--cat-soft" : "--ambiguous-soft");
+    context.fillStyle = colour(span.word ? "--pet-soft" : "--ambiguous-soft");
     context.fillRect(place(span.start), 0, Math.max(place(span.end) - place(span.start), 2), height);
     if (chosen) {
       context.strokeStyle = colour("--text");
@@ -477,7 +477,7 @@ function drawOverview() {
   context.font = "600 11px system-ui, sans-serif";
   context.textBaseline = "top";
   state.spans.forEach((span, index) => {
-    context.fillStyle = colour(span.word ? "--cat" : "--ambiguous");
+    context.fillStyle = colour(span.word ? "--pet" : "--ambiguous");
     context.fillText(span.word || String(index + 1), place(span.start) + 3, 3);
   });
   drawPlayhead(context, place, height);
@@ -502,12 +502,12 @@ function drawCloseUp() {
   const { context, width, height } = prepare($("close-up"));
   const place = (seconds) => ((seconds - view.start) / (view.end - view.start)) * width;
 
-  context.fillStyle = colour(span.word ? "--cat-soft" : "--ambiguous-soft");
+  context.fillStyle = colour(span.word ? "--pet-soft" : "--ambiguous-soft");
   context.fillRect(place(span.start), 0, place(span.end) - place(span.start), height);
   drawSound(context, width, height, view.start, view.end, colour("--muted"));
 
   // The two edges, with a grip at the middle of each.
-  context.fillStyle = colour(span.word ? "--cat" : "--ambiguous");
+  context.fillStyle = colour(span.word ? "--pet" : "--ambiguous");
   for (const edge of [span.start, span.end]) {
     context.fillRect(place(edge) - 1, 0, 2, height);
     context.fillRect(place(edge) - 4, height / 2 - 14, 8, 28);
@@ -647,7 +647,7 @@ function askToSave() {
     const had = enrolled.get(word) || 0;
     replacing += had;
     const line = element("li");
-    line.append(wordChip(word, "cat", false), ` ${plural(count, "Reference Clip")}`);
+    line.append(wordChip(word, "pet", false), ` ${plural(count, "Reference Clip")}`);
     line.append(had ? `, replacing the ${had === 1 ? "one" : had} it has now` : ", a new Word");
     lines.push(line);
   }
@@ -716,7 +716,7 @@ function renderWords() {
 
 function wordRow(word) {
   const row = element("div", "word-row");
-  row.appendChild(wordChip(word.word, "cat", false));
+  row.appendChild(wordChip(word.word, "pet", false));
   const clips = element("div", "word-clips");
   for (const clip of word.clips) {
     const pill = element("span", "clip-pill");

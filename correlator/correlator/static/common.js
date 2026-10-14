@@ -17,15 +17,27 @@ const PAGES = [
   { path: "enrol", title: "Enrolment" },
 ];
 
-const PRESSER_LABELS = { cat: "Cat", human: "Human", ambiguous: "Ambiguous", discarded: "Discarded" };
-const DECISION_LABELS = { cat: "Cat", human: "Human", discarded: "Discard" };
-const DECISION_KEYS = { c: "cat", h: "human", d: "discarded" };
+// The Pet's name comes from the root config.yml, through settings.js, loaded just before this.
+const SETTINGS = window.FLUENTPET_SETTINGS || {};
+const PET_NAME = (typeof SETTINGS.pet_name === "string" && SETTINGS.pet_name.trim()) || "Pet";
+
+const PRESSER_LABELS = { pet: PET_NAME, human: "Human", ambiguous: "Ambiguous", discarded: "Discarded" };
+const DECISION_LABELS = { pet: PET_NAME, human: "Human", discarded: "Discard" };
+const DECISION_KEYS = { c: "pet", h: "human", d: "discarded" };
 const AMBIGUITY_REASONS = {
-  both: "The cat and a person were both at the Board.",
+  both: `${PET_NAME} and a person were both at the Board.`,
   nobody: "Nobody was seen at the Board.",
 };
 
 const $ = (id) => document.getElementById(id);
+
+// Inside a sentence: the Pet keeps its name as written, the rest are lower case.
+function presserInSentence(presser) {
+  return presser === "pet" ? PET_NAME : (PRESSER_LABELS[presser] || presser).toLowerCase();
+}
+
+// Wording written into a page's HTML that names the Pet.
+for (const node of document.querySelectorAll("[data-pet-name]")) node.textContent = PET_NAME;
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -281,7 +293,7 @@ function drawClipTimeline(container, exchange, options) {
     // A Word at the very end of the Clip is drawn a little early rather than cut off.
     box.style.left = `min(${place(press.pressed_at) * 100}%, calc(100% - ${boxWidth}px))`;
     box.style.top = `${row * 28}px`;
-    box.title = `${press.word} at ${clockTime(press.pressed_at)}, ${PRESSER_LABELS[press.presser].toLowerCase()}`;
+    box.title = `${press.word} at ${clockTime(press.pressed_at)}, ${presserInSentence(press.presser)}`;
     box.addEventListener("click", (event) => {
       event.stopPropagation();
       options.onPress(press, press.pressed_at - start);
