@@ -7,6 +7,7 @@ Runs on the local PC. Presents the live picture, each day's Clips and the study'
 A Home Assistant container in the Frigate stack. Its sidebar lists the Correlator's own pages, and it polls a few figures from the Correlator as sensors for its own automations.
 
 - **Daily Summary**: one day's Clips on a timeline, the player, and where each Press is given its Review Decision.
+- **Clips**: every Clip across a range of months, a day to a row, to look back through and watch. Nothing is decided there.
 - **Review**: the Review Queue, one Press at a time.
 - **Live Feed**: the camera's picture and sound, as it happens, and where capture is Paused and Resumed.
 - **Metrics**: the study's figures per day, week, month or whole study, the Pet and the human always in separate charts.

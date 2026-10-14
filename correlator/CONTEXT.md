@@ -9,6 +9,7 @@ Two containers in the Frigate stack, built from the same code. The recording ser
 - **correlator/**: the recording service, the web service with its pages, and a tool that prints what the database holds. One page, Enrolment, belongs to Word Detection: the web service only passes its requests on.
 - **data/**: the database (not committed).
 - **Clips** are kept in a folder of their own, set by `storage.clips_dir` in the root `config.yml`; here, a folder on the second drive (D:). The folder must hold a `.fluentpet-clips` file, made once by hand; without it, as when the drive is not connected, Clips are not saved, though Presses still are.
+- **Thumbnails**: each Clip has a still beside it, the frame at its first Press, taken from Frigate as the Clip is cut. The Clips page shows them. `backfill_thumbnails.py` cuts them from the Clip files for Clips older than that.
 - **Dockerfile**, **requirements.txt**: how the container is built.
 
 ## Language

@@ -8,12 +8,13 @@
  1 ├── README.md
  1 ├── config.example.yml            ← every setting, described; copied to config.yml (not committed)
  1 ├── configure.py                  ← writes every service's settings from config.yml
- 1 ├── fluentpet.sh                  ← configure, then start everything
+ 1 ├── fluentpet.sh                  ← configure, then start everything; thumbnails for older Clips
  1 ├── correlator
  2 │   ├── CONTEXT.md
  2 │   ├── Dockerfile
+ 2 │   ├── backfill_thumbnails.py      ← thumbnails for Clips cut before they existed (run on the PC)
  2 │   ├── correlator
- 3 │   │   ├── clips.py                ← cuts Clips through Frigate's export
+ 3 │   │   ├── clips.py                ← cuts Clips through Frigate's export, and a thumbnail of each
  3 │   │   ├── config.py               ← settings from environment variables
  3 │   │   ├── database.py             ← Presses, Utterances, Observation Windows
  3 │   │   ├── presence.py             ← Board Zone presence and Presser attribution

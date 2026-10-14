@@ -90,6 +90,7 @@ You can come back and redo a single word at any time. The others keep theirs.
 ### Day to day
 
 - **Daily Summary** shows today's presses and conversations, with a clip of each.
+- **Clips** lays out every clip from the months you pick, a day to a row, with a bar for each day showing how busy it was. Filter for the ones where your pet spoke, the ones awaiting review, or a particular word, and click one to watch it.
 - **Review** lists the presses where the app couldn't tell who pressed. Watch the clip and pick your pet, you, or "nobody" for a false alarm. You can change any press this way, not only those.
 - **Metrics** shows the long-term figures.
 - **Live Feed** shows the camera. Its **Pause** button switches the camera and mic off at the Pi until you press **Resume**. Paused time doesn't count against the study.
@@ -125,6 +126,9 @@ It checks every setting before writing anything, and lists all the problems at o
 
 **The Live Feed is black, or nothing is being recorded.**
 Check the Pi is on and not Paused (the Live Feed's button says **Resume** if it is). On the Pi, `journalctl -u mediamtx` shows the stream starting and stopping. On the PC, `./fluentpet.sh logs -f word-detection` says "Lost the stream" while it can't reach the Pi.
+
+**Clips from before an upgrade have no picture on the Clips page.**
+Clips get their picture as they're cut. Run `./fluentpet.sh thumbnails` once to give older ones theirs.
 
 **Presses are recorded, but there are no clips.**
 The clips folder is missing its `.fluentpet-clips` marker, or the drive isn't connected. The app keeps recording presses without clips until it's back.
