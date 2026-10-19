@@ -67,12 +67,15 @@ echo "rpi-capture: streaming ${WIDTH}x${HEIGHT} at ${FPS} fps with sound to rtsp
 # The camera's own encoder makes the H.264; ffmpeg copies it as it is and adds the mic as AAC.
 # A raw H.264 pipe carries no timestamps, so ffmpeg stamps each frame with the time it arrives,
 # the same clock it stamps the sound with, which keeps picture and sound together.
+# The picture is not probed or buffered (-fflags nobuffer -probesize 32 -analyzeduration 0):
+# probing it while the mic runs holds up the pipe, and the camera then drops to about 5 fps.
 rpicam-vid --nopreview --verbose 0 -t 0 \
     --width "$WIDTH" --height "$HEIGHT" --framerate "$FPS" \
     --codec h264 --level 4.1 --bitrate "$BITRATE" --inline --intra "$FPS" \
     --autofocus-mode manual --lens-position "$LENS_POSITION" \
     -o - \
 | ffmpeg -nostdin -hide_banner -loglevel error -xerror \
+    -fflags nobuffer -probesize 32 -analyzeduration 0 \
     -thread_queue_size 1024 -use_wallclock_as_timestamps 1 -f h264 -i - \
     -thread_queue_size 1024 -f alsa -sample_rate 44100 -channels 1 -i "$MIC" \
     -map 0:v -map 1:a -c:v copy -c:a aac -b:a 128k \
