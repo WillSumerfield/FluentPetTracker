@@ -69,8 +69,10 @@ echo "rpi-capture: streaming ${WIDTH}x${HEIGHT} at ${FPS} fps with sound to rtsp
 # the same clock it stamps the sound with, which keeps picture and sound together.
 # The picture is not probed or buffered (-fflags nobuffer -probesize 32 -analyzeduration 0):
 # probing it while the mic runs holds up the pipe, and the camera then drops to about 5 fps.
+# Colour denoise is off: the Zero 2 W does it on the CPU and cannot keep up at 1080p30, so it
+# skips frames. The cost is a little colour grain in dim light.
 rpicam-vid --nopreview --verbose 0 -t 0 \
-    --width "$WIDTH" --height "$HEIGHT" --framerate "$FPS" \
+    --width "$WIDTH" --height "$HEIGHT" --framerate "$FPS" --denoise cdn_off \
     --codec h264 --level 4.1 --bitrate "$BITRATE" --inline --intra "$FPS" \
     --autofocus-mode manual --lens-position "$LENS_POSITION" \
     -o - \
