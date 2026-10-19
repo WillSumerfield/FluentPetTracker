@@ -12,10 +12,14 @@
 const RETRY_MS = 4000;
 const STILL_REFRESH_MS = 1000;
 const STALL_MS = 8000;
-const BEHIND_LIVE_SECONDS = 4;
 const KEEP_BUFFER_SECONDS = 20;
 // Playback stays this far behind what has arrived, so an uneven stream does not freeze it.
-const CUSHION_SECONDS = 1.2;
+const CUSHION_SECONDS = 0.5;
+// Further behind than the cushion by this much, playback speeds up a little to catch up
+// unnoticed; further behind than BEHIND_LIVE_SECONDS, it jumps.
+const CATCH_UP_SECONDS = 0.3;
+const CATCH_UP_RATE = 1.1;
+const BEHIND_LIVE_SECONDS = 2;
 const SOUND_CHOICE_KEY = "fluentpet.live.sound";
 // How often the sound is tried again while the browser is making the feed play silently.
 const SOUND_RETRY_SECONDS = 2;
@@ -256,7 +260,11 @@ function trim(buffer) {
   if (buffer.updating || !video.buffered.length) return;
   const newest = video.buffered.end(video.buffered.length - 1);
   const oldest = video.buffered.start(0);
-  if (newest - video.currentTime > BEHIND_LIVE_SECONDS) video.currentTime = newest - CUSHION_SECONDS;
+  const behind = newest - video.currentTime;
+  if (behind > BEHIND_LIVE_SECONDS) video.currentTime = newest - CUSHION_SECONDS;
+  // Once speeding up, it keeps on until it is nearly back at the cushion, so it does not flicker.
+  if (behind > CUSHION_SECONDS + CATCH_UP_SECONDS) video.playbackRate = CATCH_UP_RATE;
+  else if (behind <= CUSHION_SECONDS + 0.1) video.playbackRate = 1;
   if (video.currentTime - oldest > KEEP_BUFFER_SECONDS) {
     try {
       buffer.remove(oldest, video.currentTime - KEEP_BUFFER_SECONDS / 2);
