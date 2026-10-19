@@ -64,21 +64,42 @@ fi
 
 echo "rpi-capture: streaming ${WIDTH}x${HEIGHT} at ${FPS} fps with sound to rtsp://localhost:8554/board" >&2
 
+# Runs a command with its output pipe grown to 1 MB (about a second of video), so a short wait
+# by whatever reads it is absorbed instead of holding up the command. Falls back to the
+# normal 64 KB pipe if the Pi will not allow it.
+big_pipe() {
+    python3 -c '
+import fcntl, os, sys
+try:
+    fcntl.fcntl(1, 1031, 1 << 20)  # F_SETPIPE_SZ
+except OSError as error:
+    print(f"rpi-capture: the pipe could not be enlarged ({error}); frames may be dropped.", file=sys.stderr)
+os.execvp(sys.argv[1], sys.argv[1:])' "$@"
+}
+
 # The camera's own encoder makes the H.264; ffmpeg copies it as it is and adds the mic as AAC.
-# A raw H.264 pipe carries no timestamps, so ffmpeg stamps each frame with the time it arrives,
-# the same clock it stamps the sound with, which keeps picture and sound together.
-# The picture is not probed or buffered (-fflags nobuffer -probesize 32 -analyzeduration 0):
-# probing it while the mic runs holds up the pipe, and the camera then drops to about 5 fps.
 # Colour denoise is off: the Zero 2 W does it on the CPU and cannot keep up at 1080p30, so it
 # skips frames. The cost is a little colour grain in dim light.
+#
+# Two ffmpegs, so the camera never waits:
+# - The first reads only the picture. A raw H.264 pipe carries no timestamps, so it stamps each
+#   frame with the time it arrives, the clock the sound is stamped with too. Nothing else makes
+#   it wait, so the frames stay evenly spaced. The picture is not probed or buffered: probing
+#   holds up the pipe while the camera keeps going, and it then drops frames.
+# - The second adds the mic. It stops reading the picture now and then to keep the sound in
+#   step; the big pipe between the two absorbs that. Both keep the clock times as stamped
+#   (-copyts), so picture and sound line up exactly.
 rpicam-vid --nopreview --verbose 0 -t 0 \
     --width "$WIDTH" --height "$HEIGHT" --framerate "$FPS" --denoise cdn_off \
     --codec h264 --level 4.1 --bitrate "$BITRATE" --inline --intra "$FPS" \
     --autofocus-mode manual --lens-position "$LENS_POSITION" \
     -o - \
-| ffmpeg -nostdin -hide_banner -loglevel error -xerror \
+| big_pipe ffmpeg -nostdin -hide_banner -loglevel error -xerror \
     -fflags nobuffer -probesize 32 -analyzeduration 0 \
-    -thread_queue_size 1024 -use_wallclock_as_timestamps 1 -f h264 -i - \
+    -use_wallclock_as_timestamps 1 -f h264 -i - \
+    -map 0:v -c:v copy -copyts -f nut - \
+| ffmpeg -nostdin -hide_banner -loglevel error -xerror -copyts \
+    -thread_queue_size 1024 -f nut -i - \
     -thread_queue_size 1024 -f alsa -sample_rate 44100 -channels 1 -i "$MIC" \
     -map 0:v -map 1:a -c:v copy -c:a aac -b:a 128k \
     -f rtsp -rtsp_transport tcp rtsp://localhost:8554/board
